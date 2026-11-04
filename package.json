@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Picchiaduro Occhio Bro: picchiaduro 2D in pixel art con gli amici come personaggi, giocabile nel browser",
+  "description": "WatchOut Bro Fighters: picchiaduro 2D in pixel art con gli amici come personaggi, giocabile nel browser",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

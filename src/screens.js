@@ -149,8 +149,8 @@ export function createScenes() {
   function drawTitle(ctx) {
     ctx.drawImage(arenaCanvas(), 0, 0);
     ctx.fillStyle = 'rgba(16,8,24,0.55)'; ctx.fillRect(0, 0, W, H);
-    text(ctx, 'PICCHIADURO', W / 2, 52, { size: 30, align: 'center', color: '#f2c230', shadow: '#3a1020', weight: 700 });
-    text(ctx, 'OCCHIO BRO', W / 2, 80, { size: 20, align: 'center', color: '#ff5a4a', shadow: '#3a1020', weight: 700 });
+    text(ctx, 'WATCHOUT BRO', W / 2, 52, { size: 30, maxW: 360, align: 'center', color: '#f2c230', shadow: '#3a1020', weight: 700 });
+    text(ctx, 'FIGHTERS', W / 2, 80, { size: 20, align: 'center', color: '#ff5a4a', shadow: '#3a1020', weight: 700 });
     ROSTER.forEach((ch, i) => {
       const img = ART[ch.id].base[i < 4 ? 'right' : i > 4 ? 'left' : 'right'];
       ctx.drawImage(img, 8 + i * 40, 128);
@@ -169,7 +169,7 @@ export function createScenes() {
   function drawMenu(ctx) {
     ctx.drawImage(arenaCanvas(), 0, 0);
     ctx.fillStyle = 'rgba(16,8,24,0.7)'; ctx.fillRect(0, 0, W, H);
-    text(ctx, 'PICCHIADURO OCCHIO BRO', W / 2, 40, { size: 18, align: 'center', color: '#f2c230', weight: 700 });
+    text(ctx, 'WATCHOUT BRO FIGHTERS', W / 2, 40, { size: 18, maxW: 360, align: 'center', color: '#f2c230', weight: 700 });
     drawMenuList(ctx, MENU(), G.menuIdx, 82);
     if (G.menuIdx === 2) text(ctx, '◀ ▶ per cambiare', W / 2, 168, { size: 7, align: 'center', color: '#b8a8c8' });
     text(ctx, 'Su/Giù per scegliere · Pugno o Invio per confermare', W / 2, 200, { size: 7, align: 'center', color: '#b8a8c8' });
