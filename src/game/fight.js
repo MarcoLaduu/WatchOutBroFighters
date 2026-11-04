@@ -5,6 +5,7 @@ import { METER_MAX } from './specials.js';
 import { ART } from '../sprites/index.js';
 import { text, box, P1C, P2C, CPUC } from '../ui.js';
 import { sfx } from '../audio.js';
+import { isTouch } from '../input.js';
 
 const overlap = (a, b) => a && b && a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
 
@@ -311,7 +312,7 @@ export class Fight {
     text(ctx, msg, W / 2, 92, { size: msg.length > 14 ? 18 : 26, align: 'center', color: '#f2c230', shadow: '#3a1020' });
     if (sub) text(ctx, sub, W / 2, 110, { size: 9, align: 'center' });
     if (this.phase === 'match' && this.pt > 90 && Math.floor(this.pt / 30) % 2)
-      text(ctx, 'Premi Pugno o Invio per continuare', W / 2, 130, { size: 8, align: 'center', color: '#e6d8f0' });
+      text(ctx, isTouch() ? 'Tocca per continuare' : 'Premi Pugno o Invio per continuare', W / 2, 130, { size: 8, align: 'center', color: '#e6d8f0' });
   }
 }
 

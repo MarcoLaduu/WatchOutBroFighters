@@ -4,6 +4,7 @@ import './style.css';
 import Phaser from 'phaser';
 import { W, H, S, FONT } from './config.js';
 import { pollInput } from './input.js';
+import { initTouch, syncTouch } from './touch.js';
 import { buildArt } from './sprites/index.js';
 import { buildFrames, FW, FH } from './anim/frames.js';
 import { arenaCanvas } from './game/arena.js';
@@ -68,8 +69,11 @@ class GameScene extends Phaser.Scene {
     ctx.imageSmoothingEnabled = false;
     this.screens.draw(ctx);
     this.ui.refresh();
+    syncTouch(G);
   }
 }
+
+initTouch();
 
 new Phaser.Game({
   type: Phaser.AUTO,

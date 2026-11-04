@@ -4,7 +4,7 @@ import { W, H } from './config.js';
 import { ROSTER } from './data/roster.js';
 import { MOVESETS, BASE_MOVES } from './data/movesets.js';
 import { ART } from './sprites/index.js';
-import { wasPressed, anyPressed, confirm, cancel, padType } from './input.js';
+import { wasPressed, anyPressed, confirm as pressConfirm, cancel, padType, takeTap, isTouch } from './input.js';
 import { humanCtrl, cpuCtrl, LEVELS } from './game/controllers.js';
 import { Fight } from './game/fight.js';
 import { arenaCanvas } from './game/arena.js';
@@ -37,8 +37,52 @@ export function createScenes() {
     'Comandi',
   ];
 
+  // Tocco sul telefono: un tocco su una voce la sceglie e la conferma (vedi handleTap).
+  let tapOk = false;
+  const confirm = p => pressConfirm(p) || (tapOk && (p == null || p === 0));
+  // indice della voce di un elenco di drawMenuList toccata, o -1
+  const tapItem = (tap, n, y0) => {
+    for (let i = 0; i < n; i++) {
+      const y = y0 + i * 18 - 11;
+      if (tap.x >= W / 2 - 100 && tap.x <= W / 2 + 100 && tap.y >= y - 2 && tap.y <= y + 17) return i;
+    }
+    return -1;
+  };
+  function handleTap(tap) {
+    tapOk = false;
+    if (!tap) return;
+    switch (G.scene) {
+      case 'title': case 'controls': case 'vs': tapOk = true; break;
+      case 'menu': {
+        const i = tapItem(tap, 4, 82);
+        if (i === 2) { G.menuIdx = 2; tapOk = true; } // cambia la difficoltà
+        else if (i >= 0) { G.menuIdx = i; tapOk = true; }
+        break;
+      }
+      case 'pause': { const i = tapItem(tap, 4, 100); if (i >= 0) { G.pauseIdx = i; tapOk = true; } break; }
+      case 'end': { const i = tapItem(tap, 3, 100); if (i >= 0) { G.endIdx = i; tapOk = true; } break; }
+      case 'fight': if (G.fight && G.fight.phase === 'match') tapOk = true; break;
+      case 'moves':
+        if (tap.y < 34 && tap.x > W / 2) { G.movesSide = 1 - G.movesSide; sfx.move(); }
+        else tapOk = true;
+        break;
+      case 'select': {
+        // primo tocco sceglie il lottatore, secondo tocco sullo stesso lo conferma
+        const gx = W / 2 - (COLS * TILE) / 2, gy = 50;
+        const c = Math.floor((tap.x - gx) / TILE), r = Math.floor((tap.y - gy) / TILE);
+        if (c < 0 || c >= COLS || r < 0 || r >= 3) break;
+        const i = G.mode === 2 ? 0 : (G.locked[0] ? 1 : 0);
+        if (G.locked[i]) break;
+        const k = r * COLS + c;
+        if (G.sel[i] === k) tapOk = true; else { G.sel[i] = k; sfx.move(); }
+        break;
+      }
+    }
+  }
+
   function update() {
     G.t++;
+    handleTap(takeTap());
     // musica: quella del menu fuori dal combattimento, quella del combattimento in partita (più bassa in pausa)
     const inFight = ['fight', 'pause', 'moves'].includes(G.scene);
     music.play(inFight ? 'fight' : 'main');
@@ -155,7 +199,7 @@ export function createScenes() {
       const img = ART[ch.id].base[i < 4 ? 'right' : i > 4 ? 'left' : 'right'];
       ctx.drawImage(img, 8 + i * 40, 128);
     });
-    if (Math.floor(G.t / 30) % 2) text(ctx, 'Premi Invio o Pugno', W / 2, 112, { size: 9, align: 'center' });
+    if (Math.floor(G.t / 30) % 2) text(ctx, isTouch() ? 'Tocca lo schermo' : 'Premi Invio o Pugno', W / 2, 112, { size: 9, align: 'center' });
   }
 
   function drawMenuList(ctx, items, idx, y0) {
@@ -172,7 +216,7 @@ export function createScenes() {
     text(ctx, 'WATCHOUT BRO FIGHTERS', W / 2, 40, { size: 18, maxW: 360, align: 'center', color: '#f2c230', weight: 700 });
     drawMenuList(ctx, MENU(), G.menuIdx, 82);
     if (G.menuIdx === 2) text(ctx, '◀ ▶ per cambiare', W / 2, 168, { size: 7, align: 'center', color: '#b8a8c8' });
-    text(ctx, 'Su/Giù per scegliere · Pugno o Invio per confermare', W / 2, 200, { size: 7, align: 'center', color: '#b8a8c8' });
+    text(ctx, isTouch() ? 'Tocca una voce per sceglierla' : 'Su/Giù per scegliere · Pugno o Invio per confermare', W / 2, 200, { size: 7, align: 'center', color: '#b8a8c8' });
   }
 
   // Tabella di tutti i comandi con i tasti veri. La colonna del controller mostra i tasti
@@ -180,6 +224,7 @@ export function createScenes() {
   function drawControls(ctx) {
     ctx.fillStyle = '#140c1e'; ctx.fillRect(0, 0, W, H);
     text(ctx, 'COMANDI', W / 2, 22, { size: 12, align: 'center', color: '#f2c230' });
+    if (isTouch() && !padType(0)) return drawTouchControls(ctx);
     const pad = padType(0) || padType(1);
     const PB = { ps: ['□', '✕', 'R1'], xbox: ['X', 'A', 'RB'] };
     const [pp, pk, pb] = pad ? PB[pad] : ['□/X', '✕/A', 'R1/RB'];
@@ -203,6 +248,26 @@ export function createScenes() {
     })));
     text(ctx, 'La spazzata si para solo accovacciati, il calcio volante solo in piedi', W / 2, 198, { size: 5, align: 'center', color: '#d8c8e8' });
     text(ctx, 'Premi un tasto per tornare', W / 2, 209, { size: 5, align: 'center', color: '#b8a8c8' });
+  }
+
+  // Sul telefono: i comandi sullo schermo.
+  function drawTouchControls(ctx) {
+    const rows = [
+      ['Movimento', 'Croce a sinistra (trascina il dito)'],
+      ['Salto', '↑ sulla croce'],
+      ['Pugno / Calcio', 'Tasti rosso e blu a destra'],
+      ['Parata', 'Tasto grigio (↓ + Parata = parata bassa)'],
+      ['Pugno basso', '↓ + Pugno'],
+      ['Spazzata', '↓ + Calcio'],
+      ['Mosse speciali', 'es. ↓ → + Pugno (→ verso l\'avversario)'],
+      ['Super', 'Tasto SUPER, compare con la barra piena'],
+      ['Pausa', 'Tasto II in alto a destra'],
+    ];
+    rows.forEach(([a, b], i) => {
+      text(ctx, a, 20, 50 + i * 15, { size: 7, color: '#f2c230', maxW: 110 });
+      text(ctx, b, 136, 50 + i * 15, { size: 6, maxW: W - 150 });
+    });
+    text(ctx, 'Nei menu tocca direttamente le voci · Tocca per tornare', W / 2, 205, { size: 5, align: 'center', color: '#b8a8c8' });
   }
 
   function drawPreview(ctx, i, x, flip, col, label) {
@@ -247,7 +312,7 @@ export function createScenes() {
     else { text(ctx, 'CPU', W - 64, 24, { size: 9, align: 'center', color: CPUC }); text(ctx, '?', W - 64, 110, { size: 40, align: 'center', color: '#3a2c4a', shadow: null }); }
     const hint = G.mode === 1 ? (G.locked[0] ? 'Ora scegli l\'avversario della CPU' : 'Scegli il tuo lottatore') : 'Ognuno sceglie con i suoi comandi';
     text(ctx, hint, W / 2, 168, { size: 7, align: 'center', color: '#d8c8e8', maxW: 148 });
-    text(ctx, 'Pugno conferma · Calcio annulla', W / 2, 180, { size: 5, align: 'center', color: '#b8a8c8', maxW: 148 });
+    text(ctx, isTouch() ? 'Tocca due volte per confermare' : 'Pugno conferma · Calcio annulla', W / 2, 180, { size: 5, align: 'center', color: '#b8a8c8', maxW: 148 });
   }
 
   function drawVs(ctx) {
@@ -276,6 +341,7 @@ export function createScenes() {
   const SCHEMES = {
     kb1: { name: 'Tastiera G1', P: 'F', K: 'G', Parata: 'H', '↓': 'S', '→': 'D', '←': 'A', '↑': 'W' },
     kb2: { name: 'Tastiera G2', P: 'K', K: 'L', Parata: 'Ò' },
+    touch: { name: 'Comandi touch', P: 'Pugno', K: 'Calcio', Parata: 'Parata' },
     xbox: { name: 'Controller Xbox', P: 'X', K: 'A', Parata: 'RB' },
     ps: { name: 'Controller PlayStation', P: '□', K: '✕', Parata: 'R1' },
     cpu: { name: 'CPU', P: 'P', K: 'K', Parata: 'Parata' },
@@ -286,6 +352,7 @@ export function createScenes() {
     // in modalità 1 giocatore la CPU non usa controller: il primo controller è del G1
     const pad = padType(side);
     if (pad) return SCHEMES[pad];
+    if (side === 0 && isTouch()) return SCHEMES.touch;
     return side === 0 ? SCHEMES.kb1 : SCHEMES.kb2;
   }
   function drawMoves(ctx) {

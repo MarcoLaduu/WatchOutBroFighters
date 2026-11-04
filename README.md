@@ -1,6 +1,10 @@
-# Picchiaduro Occhio Bro
+# WatchOut Bro Fighters
 
-Picchiaduro 2D in pixel art con gli amici come personaggi, giocabile nel browser.
+Picchiaduro 2D in pixel art con gli amici come personaggi, giocabile nel browser:
+1 contro la CPU (Facile, Normale, Difficile) oppure 1 contro 1 sulla stessa tastiera o con due controller.
+
+Gioca qui: **https://marcoladuu.github.io/WatchOutBroFighters/**
+
 Progetto Vite + Phaser 4: la build finisce nella cartella `docs/`, pronta per GitHub Pages.
 
 ## Avvio
@@ -9,8 +13,18 @@ Progetto Vite + Phaser 4: la build finisce nella cartella `docs/`, pronta per Gi
 npm install      # solo la prima volta
 npm run dev      # apre il gioco nel browser e lo ricarica a ogni modifica
 npm run build    # crea la versione da pubblicare in docs/
-npm run deploy   # build + commit + push (serve il repository GitHub collegato)
+npm run deploy   # build + commit + push: aggiorna il sito
 ```
+
+Con `npm run deploy -- "messaggio"` si sceglie il messaggio del commit.
+
+## Pubblicazione su GitHub Pages
+
+Repository: https://github.com/MarcoLaduu/WatchOutBroFighters
+
+1. `npm run deploy` (crea `docs/` e la carica su GitHub).
+2. Su GitHub: **Settings → Pages → Deploy from a branch**, branch **main**, cartella **/docs**.
+3. Dopo circa un minuto il gioco è online all'indirizzo qui sopra.
 
 ## Comandi
 
@@ -27,32 +41,64 @@ In salto Pugno o Calcio fanno un calcio volante (si para solo in piedi). Drrrrrr
 
 Mosse speciali: combinazioni ↓ →, ← →, ↓ ←, ↓ ↓ + Pugno o Calcio (→ = verso l'avversario).
 Super: Pugno + Calcio insieme con la barra super piena (si carica colpendo e venendo colpiti).
-L'elenco completo di ogni personaggio è nel menu di pausa, alla voce "Mosse dei lottatori".
+L'elenco completo di ogni personaggio è nel menu di pausa, alla voce "Mosse dei lottatori";
+nei menu i tasti mostrati cambiano da soli tra tastiera, controller Xbox e PlayStation.
+
+### Da telefono o tablet
+
+Con lo schermo in orizzontale compaiono i comandi touch (per il Giocatore 1, contro la CPU):
+croce a sinistra, Pugno (rosso), Calcio (blu) e Parata a destra, tasto **SUPER** quando la barra è piena
+e **II** in alto a destra per la pausa. Nei menu si toccano direttamente le voci; nella scelta del
+lottatore un tocco lo seleziona e un secondo tocco lo conferma. Al primo tocco il gioco va a schermo
+intero dove il browser lo permette (Android sì, iPhone no). Con un controller collegato o una tastiera
+i comandi touch spariscono.
+
+## Personaggi
+
+| Personaggio | Mosse speciali | Super |
+| --- | --- | --- |
+| Doc Lady | Pallone rossoblù, Firewall, Ctrl+Z | Schermata Blu |
+| Socio Spritzu | Flash, Bomba piazzata, Bella soc! | Ace |
+| Ste | Differenziata, Pala eolica, Sì fratello!, Ultimo giro | Sì fratello... NO. |
+| Sergente Argus | Te lo ritorno, Dai Doc!, Stacco da terra, Tiro calmante | Ordine del Sergente |
+| Il Doc | Siringa, Defibrillatore, Diagnosi, Uso terapeutico | Oggi è Venerdoc! |
+| Brodi J | Panca piana, Ancora una!, Pausa proteica, Recupero tra le serie | Scheda di allenamento |
+| Bro | Placcaggio, Calcio di punizione, Mischia | Meta! |
+| Mc | Cortocircuito, Dribbling, Schedina | Il re del calcetto |
+| Drrrrrrago | Drrrrrrago!, Gadget omaggio, In diretta | Drago supremo |
+
+Ogni super è una piccola scena animata, con pose ed effetti propri.
 
 ## Struttura
 
 ```
+index.html           pagina del gioco (font Press Start 2P)
+public/
+  music/             musiche: main (menu) e fight (combattimento), in OGG e MP3
+scripts/
+  deploy.js          build + commit + push per GitHub Pages
 src/
   main.js            avvio di Phaser: BootScene prepara immagini e fotogrammi, GameScene fa girare il gioco
   config.js          risoluzione, gravità, durata dei round
-  input.js           tastiera e controller dei due giocatori
-  audio.js           effetti sonori sintetizzati e musica (main nel menu, fight in partita, in giro continuo)
+  input.js           tastiera, controller e touch dei due giocatori
+  touch.js           comandi sullo schermo per telefono e tablet
+  audio.js           effetti sonori sintetizzati e musica in giro continuo
   screens.js         titolo, menu, comandi, selezione, VS, pausa, mosse, fine incontro
   ui.js              scritte (Press Start 2P + frecce e simboli disegnati in pixel) e riquadri
-  data/              personaggi (statistiche, colori) e move set
+  data/              personaggi (statistiche, colori) e move set mostrati nei menu
   sprites/           lo sprite 48x64 approvato di ogni personaggio
   anim/
     rig.js           personaggio "a pezzi": testa e busto dallo sprite, braccia e gambe ridisegnate per posa
     rigs.js          come si scompone ogni personaggio
-    poses.js         le animazioni base, uguali per tutti
-    frames.js        crea tutti i fotogrammi (animati per chi ha il rig, posa fissa per gli altri)
+    poses.js         tutte le pose: base, mosse speciali e super
+    frames.js        crea tutti i fotogrammi di ogni personaggio
   game/
     fighter.js       stato, fisica e colpi di un lottatore
     moves.js         mosse base: tempi, danni e hitbox
     specials.js      mosse speciali di ogni personaggio (dati)
     supers.js        le super: una scena per personaggio, con pose ed effetti propri
-    fight.js         round, timer, K.O., barre della vita
-    view.js          disegno del combattimento con Phaser (arena, ombre, lottatori, scintille)
+    fight.js         round, timer, K.O., barre della vita e barra super
+    view.js          disegno del combattimento con Phaser (arena, lottatori, proiettili, effetti)
     controllers.js   giocatore umano e CPU (Facile, Normale, Difficile)
     arena.js         lo scenario
 ```
@@ -60,13 +106,17 @@ src/
 Per animare un nuovo personaggio basta aggiungere la sua voce in `anim/rigs.js`
 (spalle, anche, lunghezze e colori di braccia e gambe).
 
-## Prossimi passi
-
-- Altre arene, musica, controlli touch
-- Gioco online tra amici
-
 ## Musica
 
-I brani sono in `public/music/` (`main` e `fight`, in OGG con l'MP3 di riserva per Safari).
-I punti del giro sono in `src/audio.js` (`TRACKS`): il brano parte dall'inizio e poi si ripete
-tra `loopStart` e `loopEnd`. Il volume è `MUSIC_VOL`.
+Brani creati con Suno, in `public/music/` (OGG, con l'MP3 di riserva per Safari).
+Ogni brano parte dall'inizio e poi si ripete tra `loopStart` e `loopEnd` (in `src/audio.js`, `TRACKS`);
+il volume rispetto agli effetti è `MUSIC_VOL`. In pausa la musica si abbassa.
+
+## Prossimi passi
+
+- Altre arene
+- Gioco online tra amici
+
+---
+
+Gioco tra amici: i personaggi e i riferimenti sono ispirati a persone reali.
