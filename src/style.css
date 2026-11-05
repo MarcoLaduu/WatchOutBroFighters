@@ -12,10 +12,15 @@ html, body {
 .stage {
   position: fixed;
   inset: 0;
+  touch-action: none;                 /* niente zoom/scorrimento toccando il gioco (anche su iPhone) */
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .stage canvas {
   display: block;
+  touch-action: none;
+  -webkit-touch-callout: none;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }

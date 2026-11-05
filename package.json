@@ -5,9 +5,11 @@
   "type": "module",
   "description": "WatchOut Bro Fighters: picchiaduro 2D in pixel art con gli amici come personaggi, giocabile nel browser",
   "scripts": {
+    "dev:rete": "vite --host",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "preview:rete": "vite build && vite preview --host",
     "deploy": "node scripts/deploy.js"
   },
   "devDependencies": {

@@ -6,7 +6,7 @@
 
 const PREFIX = 'wobf-';                          // per non scontrarsi con altri siti che usano PeerJS
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // niente 0/O e 1/I, che si confondono
-export const DELAY = 4;                          // ritardo degli input in fotogrammi (~67 ms)
+export const DELAY = 4;                          // ritardo di partenza dei tasti in fotogrammi (~67 ms); poi si adatta al ping
 const ACTS = ['left', 'right', 'up', 'down', 'punch', 'kick', 'block'];
 
 let Peer = null;
@@ -39,12 +39,14 @@ export function unpackInput(b) {
 // Una sessione online. Eventi: onStatus(testo), onMessage(msg), onClose(motivo).
 export class NetSession {
   constructor() {
-    this.peer = null; this.conn = null; this.host = false; this.code = '';
+    this.peer = null; this.conn = null; this.inConn = null; this.host = false; this.code = '';
     this.status = 'idle';   // idle | connecting | waiting | connected | closed
     this.error = '';
     this.onMessage = () => {}; this.onClose = () => {};
     this.lastRecv = 0;
-    this.resetLockstep();
+    this.rtt = 0;           // tempo di andata e ritorno (ms), media mobile
+    this.rttMax = 0;        // picco recente: serve a scegliere il ritardo
+    this.resetLockstep(DELAY);
   }
 
   // ---------- collegamento ----------
@@ -70,6 +72,8 @@ export class NetSession {
     if (!this.peer) return this.fail('Impossibile creare la stanza');
     this.status = 'waiting';
     this.peer.on('connection', conn => {
+      // due canali: "ctl" affidabile per i messaggi, "in" veloce (senza ritrasmissioni) per i tasti
+      if (conn.label === 'in') { if (this.conn && conn.peer === this.conn.peer) this.attachIn(conn); else conn.close(); return; }
       if (this.conn) { conn.on('open', () => { conn.send({ t: 'full' }); setTimeout(() => conn.close(), 300); }); return; }
       this.attach(conn);
     });
@@ -84,9 +88,8 @@ export class NetSession {
     this.peer = peer;
     peer.on('error', e => { if (this.status !== 'connected') this.fail(errText(e)); });
     peer.on('open', () => {
-      const conn = peer.connect(PREFIX + code, { reliable: true, serialization: 'json' });
+      const conn = peer.connect(PREFIX + code, { label: 'ctl', reliable: true, serialization: 'json' });
       this.attach(conn);
-      // se in 15 secondi non risponde nessuno, lasciamo perdere
       setTimeout(() => { if (this.status === 'connecting') this.fail('L\'amico non risponde'); }, 15000);
     });
   }
@@ -95,21 +98,47 @@ export class NetSession {
     this.conn = conn;
     conn.on('open', () => {
       this.status = 'connected'; this.lastRecv = performance.now();
-      this.send({ t: 'hello', v: 1 });
+      this.send({ t: 'hello', v: 2 });
+      if (!this.host) this.attachIn(this.peer.connect(conn.peer, { label: 'in', reliable: false, serialization: 'json' }));
+      this.ping();
     });
-    conn.on('data', d => {
-      this.lastRecv = performance.now();
-      if (!d || typeof d !== 'object') return;
-      if (d.t === 'full') return this.fail('La stanza è già piena');
-      if (d.t === 'in') { for (const [f, b] of d.i) this.remote.set(f, b); return; }
-      if (d.t === 'ping') return;
-      this.onMessage(d);
-    });
+    conn.on('data', d => this.receive(d));
     conn.on('close', () => this.fail('L\'avversario si è scollegato'));
     conn.on('error', () => this.fail('Collegamento interrotto'));
   }
 
+  // canale dei tasti: se si chiude si continua sul canale affidabile
+  attachIn(conn) {
+    this.inConn = conn;
+    conn.on('data', d => this.receive(d));
+    conn.on('close', () => { if (this.inConn === conn) this.inConn = null; });
+    conn.on('error', () => { if (this.inConn === conn) this.inConn = null; });
+  }
+
+  receive(d) {
+    this.lastRecv = performance.now();
+    if (!d || typeof d !== 'object') return;
+    switch (d.t) {
+      case 'in': return this.receiveInputs(d);
+      case 'ping': return this.send({ t: 'pong', s: d.s });
+      case 'pong': {
+        const r = performance.now() - d.s;
+        this.rtt = this.rtt ? this.rtt * 0.8 + r * 0.2 : r;
+        this.rtts = (this.rtts || []).concat(r).slice(-20);
+        this.rttMax = Math.max(...this.rtts);
+        return;
+      }
+      case 'full': return this.fail('La stanza è già piena');
+    }
+    this.onMessage(d);
+  }
+
   send(msg) { if (this.conn && this.conn.open) try { this.conn.send(msg); } catch { /* chiuso */ } }
+  sendFast(msg) {
+    if (this.inConn && this.inConn.open) { try { this.inConn.send(msg); return; } catch { /* uso l'altro */ } }
+    this.send(msg);
+  }
+  ping() { this._ping = performance.now(); this.send({ t: 'ping', s: this._ping }); }
 
   fail(why) {
     if (this.status === 'closed') return;
@@ -119,44 +148,67 @@ export class NetSession {
   }
 
   close() {
-    try { if (this.conn) this.conn.close(); } catch { /* già chiuso */ }
+    for (const c of [this.inConn, this.conn]) try { if (c) c.close(); } catch { /* già chiuso */ }
     try { if (this.peer) this.peer.destroy(); } catch { /* già chiuso */ }
-    this.conn = null; this.peer = null;
+    this.conn = null; this.inConn = null; this.peer = null;
     if (this.status !== 'closed') this.status = 'closed';
   }
 
-  // Da chiamare a ogni fotogramma: tiene viva la connessione e si accorge se cade.
+  // Da chiamare a ogni fotogramma: misura il ping, tiene viva la connessione e si accorge se cade.
   keepAlive(now = performance.now()) {
     if (this.status !== 'connected') return;
-    if (!this._ping || now - this._ping > 1000) { this._ping = now; this.send({ t: 'ping' }); }
+    if (!this._ping || now - this._ping > 500) this.ping();
     if (now - this.lastRecv > 8000) this.fail('Connessione persa');
   }
 
   get mySide() { return this.host ? 0 : 1; }
 
+  // Ritardo dei tasti adatto a questa connessione: copre metà del ping più i suoi sbalzi.
+  suggestDelay() {
+    if (!this.rtts || !this.rtts.length) return DELAY;
+    const sorted = [...this.rtts].sort((x, y) => x - y);
+    const p90 = sorted[Math.floor((sorted.length - 1) * 0.9)];   // un ping "cattivo" ma non il picco isolato
+    return Math.max(3, Math.min(12, Math.ceil((p90 / 2 + 16) / 16.7)));
+  }
+
   // ---------- lockstep del combattimento ----------
-  resetLockstep() {
+  resetLockstep(delay = DELAY) {
+    this.delay = delay;
     this.local = new Map(); this.remote = new Map();
-    this.gen = 0;          // prossimo fotogramma a cui assegnare i miei tasti
     this.next = 0;         // prossimo fotogramma da calcolare
     this.pending = 0;      // tasti "appena premuti" non ancora spediti
-    this.unacked = [];     // ultimi input spediti: si rimandano un paio di volte per sicurezza
-    for (let f = 0; f < DELAY; f++) { this.local.set(f, 0); this.remote.set(f, 0); }
-    this.gen = DELAY;
-    this.stalls = 0;
+    this.recvUpTo = 0;     // ho tutti i tasti dell'altro fino a qui (escluso)
+    this.peerAck = 0;      // l'altro ha tutti i miei fino a qui (escluso)
+    for (let f = 0; f < delay; f++) { this.local.set(f, 0); this.remote.set(f, 0); }
+    this.gen = delay;      // prossimo fotogramma a cui assegnare i miei tasti
+    this.recvUpTo = delay; this.peerAck = delay;
   }
 
   // Prende i miei tasti di questo fotogramma e li spedisce (per il fotogramma gen).
   pushLocal(bits) {
     this.pending |= bits & ~0x7f;                    // un tocco veloce non va perso se non spedisco subito
-    if (this.gen - this.next > DELAY + 6) return;    // l'altro è indietro: aspetto
-    const b = (bits & 0x7f) | this.pending;
-    this.pending = 0;
-    this.local.set(this.gen, b);
-    this.unacked.push([this.gen, b]);
-    if (this.unacked.length > 3) this.unacked.shift();
-    this.send({ t: 'in', i: this.unacked });
-    this.gen++;
+    // il mio "orologio" va avanti a ogni giro anche se per un attimo manca un tasto dell'altro
+    // (si recupera col passo doppio); si ferma solo se l'altro è indietro di molto
+    if (this.gen - this.next < this.delay + 10) {
+      const b = (bits & 0x7f) | this.pending;
+      this.pending = 0;
+      this.local.set(this.gen, b);
+      this.gen++;
+    }
+    this.flush();
+  }
+
+  // Spedisce tutti i miei tasti che l'altro non ha ancora confermato (un pacchetto perso non blocca niente).
+  flush() {
+    const from = Math.max(this.peerAck, this.gen - 40), b = [];
+    for (let f = from; f < this.gen; f++) b.push(this.local.get(f) ?? 0);
+    this.sendFast({ t: 'in', f0: from, b, a: this.recvUpTo });
+  }
+
+  receiveInputs(d) {
+    if (typeof d.a === 'number' && d.a > this.peerAck) this.peerAck = d.a;
+    if (Array.isArray(d.b)) d.b.forEach((b, i) => { const f = d.f0 + i; if (f >= this.next && !this.remote.has(f)) this.remote.set(f, b); });
+    while (this.remote.has(this.recvUpTo)) this.recvUpTo++;
   }
 
   // Tasti dei due lati per il fotogramma next, oppure null se quelli dell'altro non sono ancora arrivati.

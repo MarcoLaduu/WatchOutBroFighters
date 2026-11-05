@@ -82,10 +82,14 @@ export function createScenes() {
   function hostStart() {
     if (!G.net.host) return;
     const seed = (Math.random() * 2 ** 32) >>> 0;
-    G.net.send({ t: 'start', sel: G.sel, seed });
+    // ritardo dei tasti scelto in base al ping misurato finora (uguale per tutti e due)
+    const delay = G.net.suggestDelay();
+    G.net.send({ t: 'start', sel: G.sel, seed, delay });
     // il lockstep riparte qui (e dall'altra parte quando arriva 'start'), prima del combattimento
-    G.net.resetLockstep();
+    G.net.resetLockstep(delay);
     G.seed = seed; go('vs');
+    // l'altro riceve il via con mezzo ping di ritardo: parto un po' dopo anch'io, così si inizia insieme
+    G.t = -Math.round(G.net.rtt / 2 / 16.7);
   }
   function shareRoom() {
     const url = shareLink(G.net.code);
@@ -110,7 +114,7 @@ export function createScenes() {
           if (n.host && G.scene === 'select' && G.locked[0] && G.locked[1]) G.selDone = G.t;
           break;
         }
-        case 'start': G.sel = m.sel; G.seed = m.seed; n.resetLockstep(); go('vs'); break;
+        case 'start': G.sel = m.sel; G.seed = m.seed; n.resetLockstep(m.delay || 4); go('vs'); break;
         case 'reselect': G.locked = [false, false]; go('select'); break;
         case 'rematch':
           G.rematch[1 - n.mySide] = true;
@@ -136,12 +140,16 @@ export function createScenes() {
       pressed[a] = acceptInput && (wasPressed(0, a) || wasPressed(1, a));
     }
     n.pushLocal(packInput(held, pressed));
-    for (let steps = 0; steps < 3; steps++) {
+    // al massimo 2 fotogrammi per giro: se si è rimasti indietro si recupera senza salti bruschi
+    let stepped = 0;
+    for (let steps = 0; steps < 2; steps++) {
+      // si calcola solo fino al "mio" tempo (gen - ritardo): il margine per la rete non si consuma mai
+      if (n.next >= n.gen - n.delay) break;
       const ins = n.ready();
       if (!ins) break;
       G.netIn = ins.map(unpackInput);
       f.update();
-      n.advance();
+      n.advance(); stepped++;
       if (n.next % 120 === 0) {
         const h = fightHash(f);
         const r = G.netHashes.get('r' + n.next);
@@ -151,7 +159,9 @@ export function createScenes() {
       }
       if (f.phase === 'match') break;
     }
-    G.netLag = !n.ready() && n.gen - n.next > 6;
+    // l'avviso compare solo se si aspetta davvero (più di un quarto di secondo)
+    G.netStall = stepped ? 0 : (G.netStall || 0) + 1;
+    G.netLag = G.netStall > 15;
   }
 
   // Campo di testo per il codice (tastiera vera o quella del telefono).
@@ -538,7 +548,7 @@ export function createScenes() {
 
   function drawVs(ctx) {
     ctx.fillStyle = '#140c1e'; ctx.fillRect(0, 0, W, H);
-    const k = Math.min(1, G.t / 20);
+    const k = Math.max(0, Math.min(1, G.t / 20));
     const a = ROSTER[G.sel[0]], b = ROSTER[G.sel[1]];
     ctx.fillStyle = '#3a1020'; ctx.fillRect(0, 0, W / 2, H);
     ctx.fillStyle = '#10203a'; ctx.fillRect(W / 2, 0, W / 2, H);
@@ -660,7 +670,12 @@ export function createScenes() {
       text(ctx, 'Aspetto l\'avversario...', W / 2, 206, { size: 6, align: 'center', color: '#ff7a6a' });
       return r;
     }
-    return drawScene(ctx);
+    const r = drawScene(ctx);
+    // online: ping e ritardo dei tasti, piccoli in basso
+    if (G.mode === 3 && G.net && G.scene === 'fight' && G.fight && G.fight.phase !== 'match') {
+      text(ctx, `ping ${Math.round(G.net.rtt)} ms · ritardo ${G.net.delay}`, W / 2, 212, { size: 5, align: 'center', color: '#8a7a9a', shadow: null });
+    }
+    return r;
   }
 
   function drawScene(ctx) {

@@ -83,7 +83,23 @@ function makeButton(cls, label, actions) {
   return b;
 }
 
+// Safari su iPhone ignora "niente zoom" nel meta viewport: doppio tocco e pizzico vanno bloccati a mano.
+// Il gioco usa i pointer event, quindi bloccare i gesti del browser non toglie nessun comando.
+function blockBrowserZoom() {
+  const typing = e => e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON');
+  let lastEnd = 0;
+  document.addEventListener('touchend', e => {
+    const now = e.timeStamp;
+    if (now - lastEnd < 400 && !typing(e)) e.preventDefault(); // doppio tocco
+    lastEnd = now;
+  }, { passive: false });
+  document.addEventListener('touchmove', e => { if (!typing(e)) e.preventDefault(); }, { passive: false }); // pizzico e scorrimento
+  for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+  document.addEventListener('dblclick', e => { if (!typing(e)) e.preventDefault(); }, { passive: false });
+}
+
 export function initTouch() {
+  blockBrowserZoom();
   root = el('div', 'tc');
   root.appendChild(makeDpad());
   const right = el('div', 'tc-right');

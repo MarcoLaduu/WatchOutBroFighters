@@ -18,6 +18,18 @@ npm run deploy   # build + commit + push: aggiorna il sito
 
 Con `npm run deploy -- "messaggio"` si sceglie il messaggio del commit.
 
+### Provarlo dal telefono sulla rete di casa
+
+```bash
+npm run dev:rete       # come dev, ma raggiungibile dagli altri dispositivi sulla stessa Wi-Fi
+npm run preview:rete   # la versione finale (build), sempre sulla rete di casa
+```
+
+Nel terminale compare un indirizzo `Network: http://192.168.x.x:5173/`: aprilo dal telefono
+(collegato alla stessa Wi-Fi). La prima volta Windows può chiedere il permesso nel firewall: consenti
+le reti private. In locale (http) il tasto "copia il link" della stanza online non funziona: basta
+dettare il codice all'amico.
+
 ## Pubblicazione su GitHub Pages
 
 Repository: https://github.com/MarcoLaduu/WatchOutBroFighters
@@ -55,8 +67,11 @@ Menu principale → **Online con un amico**:
 
 I due dispositivi si collegano direttamente (WebRTC, libreria [PeerJS](https://peerjs.com)): il server
 gratuito di PeerJS serve solo a presentarli all'inizio, poi si scambiano solo i tasti premuti.
-Ogni fotogramma si calcola quando arrivano i tasti di entrambi, con un ritardo di 4 fotogrammi
-(`DELAY` in `src/net.js`) che assorbe la rete. Online la pausa non ferma la partita.
+Ogni fotogramma si calcola quando arrivano i tasti di entrambi, con un piccolo ritardo sui tasti che
+assorbe la rete: si sceglie a ogni partita in base al ping misurato (da 3 a 12 fotogrammi, `suggestDelay`
+in `src/net.js`); in basso durante il combattimento si vedono ping e ritardo. I tasti viaggiano su un
+canale veloce senza ritrasmissioni e ogni pacchetto ripete quelli non ancora confermati, così un pacchetto
+perso non blocca la partita. Online la pausa non ferma la partita.
 Con alcune reti (alcune connessioni mobili o aziendali) il collegamento diretto può non riuscire.
 
 ### Da telefono o tablet
