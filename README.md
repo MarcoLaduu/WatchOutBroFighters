@@ -71,7 +71,7 @@ Ogni fotogramma si calcola quando arrivano i tasti di entrambi, con un piccolo r
 assorbe la rete: si sceglie a ogni partita in base al ping misurato (da 3 a 12 fotogrammi, `suggestDelay`
 in `src/net.js`); in basso durante il combattimento si vedono ping e ritardo. I tasti viaggiano su un
 canale veloce senza ritrasmissioni e ogni pacchetto ripete quelli non ancora confermati, così un pacchetto
-perso non blocca la partita. Online la pausa non ferma la partita.
+perso non blocca la partita. Se uno dei due mette in pausa, la partita si ferma per tutti e due.
 Con alcune reti (alcune connessioni mobili o aziendali) il collegamento diretto può non riuscire.
 
 ### Da telefono o tablet

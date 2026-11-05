@@ -20,7 +20,7 @@ export function createScenes() {
     scene: 'title', t: 0, mode: 1, level: 1, menuIdx: 0,
     sel: [0, 1], locked: [false, false], fight: null, pauseIdx: 0, endIdx: 0, movesSide: 0,
     // online (mode 3): sessione, voce del menu online, messaggio, codice da un link condiviso
-    net: null, onlineIdx: 0, netMsg: '', netEvents: [], autoJoin: null, rematch: [false, false], copied: 0,
+    net: null, netPause: [false, false], onlineIdx: 0, netMsg: '', netEvents: [], autoJoin: null, rematch: [false, false], copied: 0,
   };
   // aperto da un link condiviso (…#BRO-K7PQ): si entra direttamente nella stanza dell'amico
   {
@@ -38,7 +38,7 @@ export function createScenes() {
       const netCtrl = side => ({ read: () => G.netIn[side] });
       const me = G.net.mySide;
       G.fight = new Fight(c1, c2, netCtrl(0), netCtrl(1), me === 0 ? ['TU', 'AMICO'] : ['AMICO', 'TU'], { rng: makeRng(G.seed) });
-      G.netHashes = new Map(); G.desync = false; G.netIn = [unpackInput(0), unpackInput(0)];
+      G.netHashes = new Map(); G.desync = false; G.netPause = [false, false]; G.netIn = [unpackInput(0), unpackInput(0)];
       G.rematch = [false, false];
       go('fight');
       return;
@@ -63,7 +63,7 @@ export function createScenes() {
   }
   function leaveOnline(msg) {
     if (G.net) { G.net.send({ t: 'quit' }); const n = G.net; setTimeout(() => n.close(), 200); }
-    G.net = null; G.mode = 1; hideCodeInput();
+    G.net = null; G.mode = 1; G.netPause = [false, false]; hideCodeInput();
     if (msg) { G.netMsg = msg; go('netmsg'); } else go('menu');
   }
   function startHost() { newSession().host_(); go('netwait'); }
@@ -108,6 +108,7 @@ export function createScenes() {
         case 'closed': return leaveOnline(m.why);
         case 'quit': return leaveOnline('L\'avversario è uscito dalla partita');
         case 'hello': break;
+        case 'pause': G.netPause[1 - n.mySide] = !!m.on; if (m.on) sfx.move(); break;
         case 'sel': {
           const o = 1 - n.mySide;
           G.sel[o] = m.sel; G.locked[o] = m.locked;
@@ -130,10 +131,20 @@ export function createScenes() {
     }
   }
 
+  // Pausa online: chi la mette ferma la partita a tutti e due (si riparte quando nessuno è in pausa).
+  function setMyPause(on) {
+    const me = G.net.mySide;
+    if (G.netPause[me] === on) return;
+    G.netPause[me] = on;
+    G.net.send({ t: 'pause', on });
+  }
+  const netPaused = () => G.netPause[0] || G.netPause[1];
+
   // Un passo del combattimento online: spedisce i miei tasti e calcola i fotogrammi pronti.
   function netFightStep(acceptInput) {
     const n = G.net, f = G.fight;
     if (f.phase === 'match') return;
+    if (netPaused()) { G.netStall = 0; G.netLag = false; return; } // tutto fermo finché qualcuno è in pausa
     const held = {}, pressed = {};
     for (const a of ['left', 'right', 'up', 'down', 'punch', 'kick', 'block']) {
       held[a] = acceptInput && (isHeld(0, a) || isHeld(1, a));
@@ -308,7 +319,7 @@ export function createScenes() {
         const f = G.fight;
         if (G.mode === 3) {
           if (G.desync) { G.desync = false; return leaveOnline('I due giochi si sono desincronizzati. Riprovate!'); }
-          if (f.phase !== 'match' && (anyPressed('back') || anyPressed('start'))) { G.pauseIdx = 0; go('pause'); sfx.move(); netFightStep(false); break; }
+          if (f.phase !== 'match' && (anyPressed('back') || anyPressed('start'))) { G.pauseIdx = 0; setMyPause(true); go('pause'); sfx.move(); break; }
           if (f.phase !== 'match') { netFightStep(true); break; }
         }
         if (f.phase === 'match') {
@@ -322,14 +333,14 @@ export function createScenes() {
       }
       case 'pause': {
         // online la partita non si ferma: il menu sta sopra e intanto il tuo lottatore resta fermo
-        if (G.mode === 3) { netFightStep(false); if (G.scene !== 'pause') break; if (G.fight.phase === 'match') { G.scene = 'fight'; break; } }
+        const resume = () => { G.scene = 'fight'; if (G.mode === 3) setMyPause(false); };
         const n = PAUSE_ITEMS().length;
         const v = vertical();
         if (v) { G.pauseIdx = (G.pauseIdx + v + n) % n; sfx.move(); }
-        if (anyPressed('back')) { G.scene = 'fight'; break; }
+        if (anyPressed('back')) { resume(); break; }
         if (confirm()) {
           sfx.select();
-          if (G.pauseIdx === 0) G.scene = 'fight';
+          if (G.pauseIdx === 0) resume();
           else if (G.pauseIdx === 1) { G.movesSide = 0; go('moves'); }
           else if (G.mode === 3) leaveOnline();
           else if (G.pauseIdx === 2) { G.locked = [false, false]; go('select'); }
@@ -338,7 +349,6 @@ export function createScenes() {
         break;
       }
       case 'moves': {
-        if (G.mode === 3) { netFightStep(false); if (G.scene !== 'moves') break; }
         const h = horizontal();
         if (h) { G.movesSide = (G.movesSide + 2 + h) % 2; sfx.move(); }
         if (G.t > 5 && (confirm() || cancel())) { G.scene = 'pause'; sfx.move(); }
@@ -454,28 +464,38 @@ export function createScenes() {
     ctx.fillStyle = '#140c1e'; ctx.fillRect(0, 0, W, H);
     text(ctx, 'COMANDI', W / 2, 22, { size: 12, align: 'center', color: '#f2c230' });
     if (isTouch() && !padType(0)) return drawTouchControls(ctx);
-    const pad = padType(0) || padType(1);
-    const PB = { ps: ['□', '✕', 'R1'], xbox: ['X', 'A', 'RB'] };
-    const [pp, pk, pb] = pad ? PB[pad] : ['□/X', '✕/A', 'R1/RB'];
-    const padName = pad === 'ps' ? 'PlayStation' : pad === 'xbox' ? 'Xbox' : 'Controller';
-    const rows = [
-      ['', 'Giocatore 1', 'Giocatore 2', padName],
-      ['Movimento', 'W A S D', '← → ↑ ↓', 'Croce/levetta'],
-      ['Salto', 'W', '↑', '↑'],
-      ['Pugno', 'F', 'K', pp],
-      ['Calcio', 'G', 'L', pk],
-      ['Parata', 'H', 'Ò', pb],
-      ['Pugno basso', 'S + F', '↓ + K', `↓ + ${pp}`],
-      ['Spazzata', 'S + G', '↓ + L', `↓ + ${pk}`],
-      ['Calcio volante', 'W, F o G', '↑, K o L', `↑, ${pp} o ${pk}`],
-      ['Parata bassa', 'S + H', '↓ + Ò', `↓ + ${pb}`],
-      ['Pausa', 'Esc', '', 'Start'],
+    // solo tasti veri: le colonne della tastiera, più una per ogni controller collegato (con i suoi simboli)
+    const PADS = {
+      ps: { name: 'PlayStation', P: '□', K: '✕', B: 'R1', start: 'Options' },
+      xbox: { name: 'Xbox', P: 'X', K: 'A', B: 'RB', start: 'Menu' },
+    };
+    const cols = [
+      { name: 'Tastiera G1', mv: 'W A S D', up: 'W', dn: 'S', P: 'F', K: 'G', B: 'H', start: 'Esc' },
+      { name: 'Tastiera G2', mv: '← → ↑ ↓', up: '↑', dn: '↓', P: 'K', K: 'L', B: 'Ò', start: 'Esc' },
     ];
-    const cols = [12, 112, 204, 296];
-    rows.forEach((r, i) => r.forEach((c, j) => text(ctx, c, cols[j], 46 + i * 14, {
-      size: i === 0 ? 5 : 7, color: i === 0 || j === 0 ? '#f2c230' : '#fff', maxW: j === 0 ? 98 : 88,
-    })));
-    text(ctx, 'La spazzata si para solo accovacciati, il calcio volante solo in piedi', W / 2, 198, { size: 5, align: 'center', color: '#d8c8e8' });
+    [padType(0), padType(1)].forEach((t, i) => {
+      if (t) cols.push({ ...PADS[t], name: `${PADS[t].name} G${i + 1}`, mv: '← → ↑ ↓', up: '↑', dn: '↓' });
+    });
+    const rows = [
+      ['Movimento', c => c.mv],
+      ['Salto', c => c.up],
+      ['Pugno', c => c.P],
+      ['Calcio', c => c.K],
+      ['Parata', c => c.B],
+      ['Pugno basso', c => `${c.dn} + ${c.P}`],
+      ['Spazzata', c => `${c.dn} + ${c.K}`],
+      ['Calcio volante', c => `${c.up}, ${c.P} o ${c.K}`],
+      ['Parata bassa', c => `${c.dn} + ${c.B}`],
+      ['Super', c => `${c.P} + ${c.K}`],
+      ['Pausa', c => c.start],
+    ];
+    const x0 = 12, labelW = 100, cw = (W - x0 - labelW - 8) / cols.length;
+    cols.forEach((c, j) => text(ctx, c.name, x0 + labelW + j * cw, 44, { size: 5, color: '#f2c230', maxW: cw - 6 }));
+    rows.forEach(([name, get], i) => {
+      const y = 58 + i * 13;
+      text(ctx, name, x0, y, { size: 7, color: '#f2c230', maxW: labelW - 6 });
+      cols.forEach((c, j) => text(ctx, get(c), x0 + labelW + j * cw, y, { size: 7, maxW: cw - 6 }));
+    });
     text(ctx, 'Premi un tasto per tornare', W / 2, 209, { size: 5, align: 'center', color: '#b8a8c8' });
   }
 
@@ -579,8 +599,8 @@ export function createScenes() {
   };
   const fmt = (cmd, sc) => cmd.split(' ').map(t => sc[t] ?? t).join(' ');
   function schemeFor(side) {
-    if (G.fight.labels[side] === 'CPU' || G.fight.labels[side] === 'AMICO') return SCHEMES.cpu;
-    if (G.mode === 3) side = 0; // online i tuoi comandi sono sempre quelli del G1
+    // CPU, amico online o tu: si mostrano sempre i tasti veri di chi sta guardando (G1)
+    if (G.fight.labels[side] === 'CPU' || G.mode === 3) side = 0;
     // in modalità 1 giocatore la CPU non usa controller: il primo controller è del G1
     const pad = padType(side);
     if (pad) return SCHEMES[pad];
@@ -610,16 +630,12 @@ export function createScenes() {
     for (const [n, c] of BASE_MOVES) { row(y, n, c); y += 9; }
     if (ch.doubleJump) { row(y, 'Doppio salto', '↑ in aria'); y += 9; }
     y += 5;
-    text(ctx, 'MOSSE SPECIALI', 12, y, { size: 7, color: col });
-    text(ctx, 'Super: con la barra piena', W - 12, y, { size: 5, align: 'right', color: '#7fe8ff' }); y += 11;
+    text(ctx, 'MOSSE SPECIALI', 12, y, { size: 7, color: col }); y += 11;
     for (const [n, c] of ms.specials) { row(y, n, c, '#fff'); y += 9; }
     row(y, `Super: ${ms.super}`, 'P + K', '#7fe8ff'); y += 11;
     if (ms.passive && !ch.doubleJump) text(ctx, `Abilità passiva · ${ms.passive[0]}: ${ms.passive[1]}`, 12, y, { size: 5, color: '#a898b8' });
 
-    const legend = sc === SCHEMES.cpu ? 'P = pugno · K = calcio · direzioni con il lottatore rivolto a destra'
-      : `${sc.name} · direzioni con il lottatore rivolto a destra`;
-    text(ctx, legend, W / 2, 196, { size: 5, align: 'center', color: '#b8a8c8' });
-    text(ctx, 'La barra super si carica colpendo e venendo colpiti · Pugno o Calcio per tornare', W / 2, 207, { size: 5, align: 'center', color: '#8a7a9a' });
+    text(ctx, isTouch() ? 'Tocca per tornare' : 'Pugno o Calcio per tornare', W / 2, 207, { size: 5, align: 'center', color: '#8a7a9a' });
   }
 
   function onlineBg(ctx, title) {
@@ -671,6 +687,14 @@ export function createScenes() {
       return r;
     }
     const r = drawScene(ctx);
+    // online: l'amico ha messo in pausa
+    if (G.mode === 3 && G.net && G.scene === 'fight' && G.netPause[1 - G.net.mySide]) {
+      ctx.fillStyle = 'rgba(10,6,16,0.7)'; ctx.fillRect(0, 0, W, H);
+      text(ctx, 'PAUSA', W / 2, 96, { size: 16, align: 'center', color: '#f2c230', weight: 700 });
+      text(ctx, 'L\'amico ha messo in pausa', W / 2, 118, { size: 8, align: 'center' });
+      text(ctx, 'Si riparte quando riprende', W / 2, 134, { size: 6, align: 'center', color: '#b8a8c8' });
+      return r;
+    }
     // online: ping e ritardo dei tasti, piccoli in basso
     if (G.mode === 3 && G.net && G.scene === 'fight' && G.fight && G.fight.phase !== 'match') {
       text(ctx, `ping ${Math.round(G.net.rtt)} ms · ritardo ${G.net.delay}`, W / 2, 212, { size: 5, align: 'center', color: '#8a7a9a', shadow: null });
@@ -686,7 +710,7 @@ export function createScenes() {
       case 'select': return drawSelect(ctx);
       case 'vs': return drawVs(ctx);
       case 'fight': return G.fight.drawUi(ctx);
-      case 'pause': return drawPause(ctx, G.mode === 3 ? 'MENU' : 'PAUSA', PAUSE_ITEMS(), G.pauseIdx);
+      case 'pause': return drawPause(ctx, 'PAUSA', PAUSE_ITEMS(), G.pauseIdx);
       case 'online': return drawOnline(ctx);
       case 'netwait': return drawNetWait(ctx);
       case 'netjoin': return drawNetJoin(ctx);
