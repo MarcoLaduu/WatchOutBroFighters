@@ -344,7 +344,7 @@ export class Fighter {
         break;
       case 'random':
         if (t === S) {
-          const roll = ['1', 'X', '2'][Math.floor(Math.random() * 3)];
+          const roll = ['1', 'X', '2'][Math.floor(fight.rng() * 3)];
           fight.say(this, roll, 18);
           if (roll === '1') { fight.overlay('lightning', 16, opp.x); fight.applyHit(this, opp, d.win, { x: opp.x - this.face, face: this.face }); }
           if (roll === '2') { this.hp = Math.max(1, this.hp - d.lose); this.flash = 5; fight.overlay('lightning', 16, this.x); sfx.hit(); }

@@ -19,6 +19,7 @@ const held = [mk(), mk()], prev = [mk(), mk()];
 export const pressed = [mk(), mk()];
 
 addEventListener('keydown', e => {
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return; // si sta scrivendo (codice online)
   unlockAudio();
   touchMode = false; // si gioca con una tastiera vera: niente comandi sullo schermo
   for (let p = 0; p < 2; p++) {

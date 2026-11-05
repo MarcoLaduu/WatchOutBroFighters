@@ -299,7 +299,7 @@ export const SCRIPTS = {
       // tuffo: arco in avanti e giù
       const k = d / 16;
       f.x = clampX(f.x + f.face * 1.6);
-      f.y = GROUND - Math.sin(k * Math.PI) * 16;
+      f.y = GROUND - 4 * k * (1 - k) * 16; // arco (senza seno: uguale su tutti i browser, serve all'online)
       f.view = { anim: 'dash', idx: 1, rot: f.face * k * 1.1 };
       opp.view = { anim: 'hurt', idx: 0, rot: f.face * Math.PI / 2, depth: 3 };
       opp.x = f.x - f.face * lerp(26, 0, k) + f.face * 8 * k;

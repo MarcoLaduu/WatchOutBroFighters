@@ -10,7 +10,7 @@ Progetto Vite + Phaser 4: la build finisce nella cartella `docs/`, pronta per Gi
 ## Avvio
 
 ```bash
-npm install      # solo la prima volta
+npm install      # la prima volta (e dopo ogni nuova libreria, es. peerjs per l'online)
 npm run dev      # apre il gioco nel browser e lo ricarica a ogni modifica
 npm run build    # crea la versione da pubblicare in docs/
 npm run deploy   # build + commit + push: aggiorna il sito
@@ -43,6 +43,21 @@ Mosse speciali: combinazioni ↓ →, ← →, ↓ ←, ↓ ↓ + Pugno o Calcio
 Super: Pugno + Calcio insieme con la barra super piena (si carica colpendo e venendo colpiti).
 L'elenco completo di ogni personaggio è nel menu di pausa, alla voce "Mosse dei lottatori";
 nei menu i tasti mostrati cambiano da soli tra tastiera, controller Xbox e PlayStation.
+
+### Online con un amico
+
+Menu principale → **Online con un amico**:
+
+1. Uno sceglie **Crea una stanza** e ottiene un codice tipo `BRO-K7PQ`. Con Pugno/Invio (o toccando il
+   codice sul telefono) copia/condivide il link della stanza.
+2. L'altro apre il link, oppure sceglie **Entra con un codice** e lo scrive.
+3. Ognuno sceglie il suo lottatore e si combatte, ognuno dal suo dispositivo (anche PC contro telefono).
+
+I due dispositivi si collegano direttamente (WebRTC, libreria [PeerJS](https://peerjs.com)): il server
+gratuito di PeerJS serve solo a presentarli all'inizio, poi si scambiano solo i tasti premuti.
+Ogni fotogramma si calcola quando arrivano i tasti di entrambi, con un ritardo di 4 fotogrammi
+(`DELAY` in `src/net.js`) che assorbe la rete. Online la pausa non ferma la partita.
+Con alcune reti (alcune connessioni mobili o aziendali) il collegamento diretto può non riuscire.
 
 ### Da telefono o tablet
 
@@ -82,6 +97,7 @@ src/
   config.js          risoluzione, gravità, durata dei round
   input.js           tastiera, controller e touch dei due giocatori
   touch.js           comandi sullo schermo per telefono e tablet
+  net.js             gioco online: collegamento PeerJS, codici stanza, lockstep dei tasti
   audio.js           effetti sonori sintetizzati e musica in giro continuo
   screens.js         titolo, menu, comandi, selezione, VS, pausa, mosse, fine incontro
   ui.js              scritte (Press Start 2P + frecce e simboli disegnati in pixel) e riquadri
@@ -115,7 +131,7 @@ il volume rispetto agli effetti è `MUSIC_VOL`. In pausa la musica si abbassa.
 ## Prossimi passi
 
 - Altre arene
-- Gioco online tra amici
+- Rollback per l'online (meno ritardo sui tasti)
 
 ---
 

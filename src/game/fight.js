@@ -10,7 +10,9 @@ import { isTouch } from '../input.js';
 const overlap = (a, b) => a && b && a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
 
 export class Fight {
-  constructor(ch1, ch2, ctrl1, ctrl2, labels) {
+  constructor(ch1, ch2, ctrl1, ctrl2, labels, opts = {}) {
+    // numeri casuali della logica: online sono "a seme", uguali sui due dispositivi
+    this.rng = opts.rng || Math.random;
     this.f = [new Fighter(ch1, 0, ctrl1), new Fighter(ch2, 1, ctrl2)];
     this.labels = labels;            // ['G1','CPU'] ecc.
     this.round = 1; this.sparks = [];
@@ -289,7 +291,7 @@ export class Fight {
         ctx.fillRect(dx, 44, 6, 4);
       }
     };
-    const c2 = this.labels[1] === 'CPU' ? CPUC : P2C;
+    const c2 = this.labels[1] === 'CPU' ? CPUC : P2C; // anche online: G2 in blu
     bar(a, 8, false, P1C);
     bar(b, W - 150, true, c2);
     const secs = Math.ceil(this.timer / 60);
