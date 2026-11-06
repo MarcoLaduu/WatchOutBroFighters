@@ -93,6 +93,47 @@ export const SPECIALS = {
     DDK: { name: 'In diretta', kind: 'self', anim: 'shout', startup: 10, recovery: 16, shout: 'IN DIRETTA!', buff: { live: 300 } },
     super: { name: 'Drago supremo', kind: 'cine', shout: 'DRRRRRRAGO SUPREMO!' },
   },
+  piripinna: {
+    // pallone schiacciato dall'alto: scende in diagonale, si para solo in piedi
+    DFP: { name: 'Schiacciata', kind: 'proj', anim: 'uppercut', startup: 10, recovery: 18, shout: 'SCHIACCIATA!',
+      proj: [{ type: 'volley', vx: 3.4, vy: 1.9, y: -62, w: 7, h: 7, life: 90, hit: hit(8, { level: 'high' }) }] },
+    // salto a muro con le braccia alte: rimanda indietro i proiettili e colpisce chi salta
+    BFK: { name: 'Muro', kind: 'rising', anim: 'lift', startup: 3, active: 18, recovery: 10, vy: -4.6, invuln: 4, every: 30, reflect: true,
+      shout: 'MURO!', box: [-6, 20, -70, -30], hit: hit(7, { knockdown: true }) },
+    // bagher basso: lancia l'avversario in aria
+    DBP: { name: 'Bagher', kind: 'melee', anim: 'cpunch', startup: 7, active: 4, recovery: 18,
+      box: [4, 30, -22, 0], hit: hit(7, { level: 'low', knockdown: true, launch: -4.6 }) },
+    // gli dice una verità scomoda: per 4 secondi fa meno danni
+    DDK: { name: 'Senza peli sulla lingua', kind: 'melee', anim: 'point', startup: 10, active: 6, recovery: 16, wave: true,
+      shout: 'TE LO DICO IN FACCIA!', box: [0, 60, -62, 0], hit: hit(2, { push: 4, hitstun: 14, effect: { weak: 240 } }) },
+    super: { name: 'Sentenza dell\'Aia', kind: 'cine', shout: 'SENTENZA!' },
+  },
+  pavone: {
+    // tre piume a ventaglio
+    DFP: { name: 'Piume', kind: 'proj', anim: 'punch', startup: 9, recovery: 16,
+      proj: [-0.7, 0, 0.7].map(vy => ({ type: 'feather', vx: 3.8, vy, y: -34, w: 7, h: 3, life: 70, hit: hit(3, { hitstun: 12 }) })) },
+    // apre la coda: rimanda indietro i proiettili e abbaglia chi è vicino
+    DBK: { name: 'Ruota', kind: 'melee', anim: 'power', startup: 5, active: 22, recovery: 14, reflect: true, fan: true,
+      box: [-4, 30, -64, 0], hit: hit(2, { push: 3, hitstun: 12, effect: { blind: 100 } }) },
+    // provetta: dove si rompe resta una coltura che rallenta
+    BFP: { name: 'Coltura batterica', kind: 'zone', anim: 'punch', startup: 10, recovery: 16, zone: { type: 'culture', dx: 70, r: 30, dur: 200 } },
+    // si fa i complimenti da solo e si ricarica la barra
+    DDP: { name: 'Grande davi!', kind: 'self', anim: 'victory', startup: 10, recovery: 18, shout: 'GRANDE DAVI!', meter: 25 },
+    super: { name: 'Selezione naturale', kind: 'cine', shout: 'SELEZIONE NATURALE!' },
+  },
+  ilaryHead: {
+    // nuvola di vapore che appanna la vista
+    DFP: { name: 'Nuvola di IQOS', kind: 'zone', anim: 'drink', startup: 10, recovery: 14, zone: { type: 'smoke', dx: 44, r: 30, dur: 170 } },
+    // scatto e timbro sul polso: lo stordisce un attimo
+    BFK: { name: 'Sei in lista!', kind: 'dash', anim: 'dash', startup: 6, active: 16, recovery: 14, speed: 5, shout: 'SEI IN LISTA!',
+      box: [0, 22, -46, -12], hit: hit(6, { effect: { stun: 40 } }) },
+    // presa da educatrice: dietro la lavagna e qualche bacchettata
+    DBP: { name: 'In castigo!', kind: 'grab', anim: 'grab', startup: 6, active: 3, recovery: 20, range: 30, shout: 'IN CASTIGO!',
+      hold: 44, hit: hit(10, { effect: { stun: 50 } }) },
+    // si ricarica ballando: ancora più veloce per qualche secondo
+    DDK: { name: 'Dopo-serata', kind: 'self', anim: 'dance', startup: 12, recovery: 16, shout: 'DOPO-SERATA!', buff: { fast: 300 } },
+    super: { name: 'Tutti in lista!', kind: 'cine', shout: 'TUTTI IN PISTA!' },
+  },
 };
 
 export const METER_MAX = 100;

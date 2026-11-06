@@ -14,6 +14,9 @@ import { drawMc } from '../sprites/mc.js';
 import { drawSergenteArgus } from '../sprites/sergenteArgus.js';
 import { drawDrrrrrrago } from '../sprites/drrrrrrago.js';
 import { drawBrodiJ } from '../sprites/brodiJ.js';
+import { drawPiripinna } from '../sprites/piripinna.js';
+import { drawPavone } from '../sprites/pavone.js';
+import { drawIlaryHead } from '../sprites/ilaryHead.js';
 
 const all = c => [[0, 1, c]];
 
@@ -145,6 +148,50 @@ export const RIGS = {
       foreBandsF: [[0, 0.2, '#d39d77'], [0.2, 0.32, '#3a4352'], [0.32, 0.45, '#d39d77'], [0.45, 0.58, '#3a4352'], [0.58, 0.75, '#d39d77'], [0.75, 0.88, '#1b1b1b'], [0.88, 1, '#d39d77']],
       thigh: 6, shin: 6, wThigh: 9, wShin: 8,
       thighBands: [[0, 0.35, '#1b1b1f'], [0.35, 1, '#d39d77']], shinBands: [[0, 0.85, '#d39d77'], [0.85, 1, '#f2f2ee']],
+    },
+  },
+
+  piripinna: {
+    draw: drawPiripinna, neckY: 23, torsoBottom: 45,
+    shoulderB: [12, 27], shoulderF: [35, 27],
+    hipB: [19.5, 45], hipF: [27.5, 45], ankleB: [19.5, 57], ankleF: [27.5, 57],
+    fistBox: [30, 22, 34, 26], bootBox: [25, 58, 33, 61], ankleInBoot: [28, 57],
+    limbs: {
+      upper: 7, fore: 9, wUpper: 3, wFore: 3,
+      upperBands: [[0, 0.4, '#2f6fd0'], [0.4, 1, '#d9a27a']],
+      foreBands: all('#d9a27a'),
+      thigh: 6, shin: 6, wThigh: 6, wShin: 6,
+      thighBands: [[0, 0.4, '#1e1e26'], [0.4, 1, '#d9a27a']],
+      shinBands: [[0, 0.3, '#f4f2ee'], [0.3, 0.8, '#d9a27a'], [0.8, 1, '#f4f2ee']],
+    },
+  },
+
+  pavone: {
+    draw: drawPavone, neckY: 21, torsoBottom: 45,
+    shoulderB: [10, 24], shoulderF: [37, 24],
+    hipB: [17.5, 45], hipF: [29.5, 45], ankleB: [17.5, 57], ankleF: [29.5, 57],
+    fistBox: [30, 17, 35, 22], bootBox: [26, 58, 35, 61], ankleInBoot: [30, 57],
+    limbs: {
+      upper: 8, fore: 10, wUpper: 4, wFore: 4,
+      upperBands: all('#f2f2ee'),
+      foreBands: [[0, 0.85, '#f2f2ee'], [0.85, 1, '#c8c8c2']],
+      thigh: 6, shin: 6, wThigh: 8, wShin: 7,
+      thighBands: all('#3b4250'), shinBands: all('#3b4250'),
+    },
+  },
+
+  ilaryHead: {
+    draw: drawIlaryHead, neckY: 26, torsoBottom: 47,
+    shoulderB: [12, 30], shoulderF: [35, 30],
+    hipB: [18.5, 47], hipF: [28.5, 47], ankleB: [18.5, 57], ankleF: [28.5, 57],
+    fistBox: [30, 25, 34, 29], bootBox: [25, 58, 34, 61], ankleInBoot: [28.5, 57],
+    limbs: {
+      upper: 6, fore: 8, wUpper: 3, wFore: 3,
+      upperBands: all('#f2cdb4'),
+      foreBandsB: all('#f2cdb4'),
+      foreBandsF: [[0, 0.78, '#f2cdb4'], [0.78, 0.92, '#f2c230'], [0.92, 1, '#f2cdb4']],
+      thigh: 5, shin: 5, wThigh: 8, wShin: 7,
+      thighBands: all('#7d9ccb'), shinBands: all('#7d9ccb'),
     },
   },
 };

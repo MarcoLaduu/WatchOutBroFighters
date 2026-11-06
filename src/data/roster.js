@@ -1,4 +1,4 @@
-// I 9 personaggi: statistiche dal move set (da 1 a 5, 14 punti in totale) e dati per le animazioni.
+// I 12 personaggi: statistiche dal move set (da 1 a 5, 14 punti in totale) e dati per le animazioni.
 import { drawDocLady } from '../sprites/docLady.js';
 import { drawIlDoc } from '../sprites/ilDoc.js';
 import { drawSocioSpritzu } from '../sprites/socioSpritzu.js';
@@ -8,6 +8,9 @@ import { drawSergenteArgus } from '../sprites/sergenteArgus.js';
 import { drawBro } from '../sprites/bro.js';
 import { drawDrrrrrrago } from '../sprites/drrrrrrago.js';
 import { drawBrodiJ } from '../sprites/brodiJ.js';
+import { drawPiripinna } from '../sprites/piripinna.js';
+import { drawPavone } from '../sprites/pavone.js';
+import { drawIlaryHead } from '../sprites/ilaryHead.js';
 
 // oy: di quanti pixel lo sprite parte più in basso (personaggi più bassi).
 // arm/fist: colori del braccio che tira il pugno. leg/shoe: colori della gamba che calcia.
@@ -48,4 +51,16 @@ export const ROSTER = [
     stats: { vita: 2, forza: 3, velocita: 4, salto: 5 },
     style: 'Caotico e aereo', win: 'Mettete like! Drrrrrrago!',
     arm: '#e8b898', fist: '#e8b898', leg: '#c9b48a', shoe: '#ececec' },
+  { id: 'piripinna', name: 'Piripinna', draw: drawPiripinna, oy: 3,
+    stats: { vita: 3, forza: 3, velocita: 4, salto: 4 },
+    style: 'Pallavolista profiler', win: 'Ti avevo già inquadrato.',
+    arm: '#d9a27a', fist: '#d9a27a', leg: '#d9a27a', shoe: '#f2f2f2' },
+  { id: 'pavone', name: 'Il Pavone', draw: drawPavone, oy: 0,
+    stats: { vita: 4, forza: 3, velocita: 3, salto: 4 },
+    style: 'Enigmatico e imprevedibile', win: 'Grande davi!',
+    arm: '#f2f2ee', fist: '#ecc6a6', leg: '#3b4250', shoe: '#2a2a2a' },
+  { id: 'ilaryHead', name: 'Ilary Head', draw: drawIlaryHead, oy: 6,
+    stats: { vita: 2, forza: 3, velocita: 5, salto: 4 },
+    style: 'Festaiola velocissima', win: 'Sei in lista. Ci vediamo al privè!',
+    arm: '#f2cdb4', fist: '#f2cdb4', leg: '#7d9ccb', shoe: '#f0f0f0' },
 ];

@@ -40,6 +40,21 @@ export const MOVESETS = {
     specials: [['Drrrrrrago!', '↓ → + P (tieni)'], ['Gadget omaggio', '← → + P'], ['In diretta', '↓ ↓ + K']],
     super: 'Drago supremo',
   },
+  piripinna: {
+    passive: ['Ti ho già inquadrato', 'la prima mossa speciale subita in ogni round fa metà danno'],
+    specials: [['Schiacciata', '↓ → + P'], ['Muro', '← → + K'], ['Bagher', '↓ ← + P'], ['Senza peli sulla lingua', '↓ ↓ + K']],
+    super: 'Sentenza dell\'Aia',
+  },
+  pavone: {
+    passive: ['Mimetismo', 'fermo 2 secondi diventa trasparente: il colpo dopo fa +30%'],
+    specials: [['Piume', '↓ → + P'], ['Ruota', '↓ ← + K'], ['Coltura batterica', '← → + P'], ['Grande davi!', '↓ ↓ + P']],
+    super: 'Selezione naturale',
+  },
+  ilaryHead: {
+    passive: ['Sempre in lista', 'inizia ogni round con un quarto di barra super'],
+    specials: [['Nuvola di IQOS', '↓ → + P'], ['Sei in lista!', '← → + K'], ['In castigo!', '↓ ← + P'], ['Dopo-serata', '↓ ↓ + K']],
+    super: 'Tutti in lista!',
+  },
 };
 
 // Mosse base, uguali per tutti e già attive.

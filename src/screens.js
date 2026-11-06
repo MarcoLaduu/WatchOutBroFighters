@@ -13,7 +13,7 @@ import { text, box, P1C, P2C, CPUC } from './ui.js';
 import { sfx, music } from './audio.js';
 
 const STAT_NAMES = [['vita', 'Vita'], ['forza', 'Forza'], ['velocita', 'Velocità'], ['salto', 'Salto']];
-const COLS = 3, TILE = 36;
+const COLS = 4, TILE = 36; // griglia di selezione 4 x 3 (12 lottatori)
 
 export function createScenes() {
   const G = {
@@ -434,9 +434,11 @@ export function createScenes() {
     ctx.fillStyle = 'rgba(16,8,24,0.55)'; ctx.fillRect(0, 0, W, H);
     text(ctx, 'WATCHOUT BRO', W / 2, 52, { size: 30, maxW: 360, align: 'center', color: '#f2c230', shadow: '#3a1020', weight: 700 });
     text(ctx, 'FIGHTERS', W / 2, 80, { size: 20, align: 'center', color: '#ff5a4a', shadow: '#3a1020', weight: 700 });
+    // tutti i lottatori in fila, la prima metà guarda a destra e la seconda a sinistra
+    const n = ROSTER.length, step = (W - 56) / (n - 1);
     ROSTER.forEach((ch, i) => {
-      const img = ART[ch.id].base[i < 4 ? 'right' : i > 4 ? 'left' : 'right'];
-      ctx.drawImage(img, 8 + i * 40, 128);
+      const img = ART[ch.id].base[i < n / 2 ? 'right' : 'left'];
+      ctx.drawImage(img, Math.round(4 + i * step), 128 + (i % 2 ? 4 : 0));
     });
     if (Math.floor(G.t / 30) % 2) text(ctx, isTouch() ? 'Tocca lo schermo' : 'Premi Invio o Pugno', W / 2, 112, { size: 9, align: 'center' });
   }

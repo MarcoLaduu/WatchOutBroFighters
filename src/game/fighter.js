@@ -34,13 +34,17 @@ export class Fighter {
     this.comboTaken = 0; this.bonusNext = false;
     this.sp = null; this.spData = {}; this.box = null; this.holder = null;
     this.cine = null; this.view = null; // super in corso (vedi supers.js) e posa imposta dalla scena
+    this.reflect = 0;            // Muro / Ruota: rimanda indietro i proiettili
+    this.readDone = false;       // Piripinna: "Ti ho già inquadrato" usato in questo round
+    this.stillT = 0; this.camo = false; // Il Pavone: Mimetismo
+    if (this.ch.id === 'ilaryHead') this.meter = Math.max(this.meter || 0, 25); // Ilary Head: Sempre in lista
   }
 
   get grounded() { return this.y >= GROUND && this.vy >= 0; }
   set(state) { this.state = state; this.t = 0; }
   addMeter(n) { this.meter = Math.min(METER_MAX, this.meter + n * (this.st.live ? 2 : 1)); }
-  speed() { return (this.st.slow ? 0.5 : 1) * (this.st.sluggish ? 0.6 : 1) * (this.st.venerdoc ? 1.2 : 1) * (this.st.crown ? 1.3 : 1); }
-  dmgOut() { return this.dmgMul * (this.st.drunk ? 1.5 : 1) * (this.st.venerdoc ? 1.6 : 1); }
+  speed() { return (this.st.slow ? 0.5 : 1) * (this.st.sluggish ? 0.6 : 1) * (this.st.venerdoc ? 1.2 : 1) * (this.st.crown ? 1.3 : 1) * (this.st.fast ? 1.35 : 1); }
+  dmgOut() { return this.dmgMul * (this.st.drunk ? 1.5 : 1) * (this.st.venerdoc ? 1.6 : 1) * (this.st.weak ? 0.6 : 1); }
 
   // Riquadro colpibile del corpo, in coordinate del mondo.
   hurtbox() {
@@ -119,6 +123,13 @@ export class Fighter {
     if (this.flash > 0) this.flash--;
     if (this.invuln > 0) this.invuln--;
     if (this.barrier > 0) this.barrier--;
+    if (this.reflect > 0) this.reflect--;
+    // Il Pavone, Mimetismo: fermo per 2 secondi diventa semitrasparente
+    if (this.ch.id === 'pavone' && !this.camo) {
+      const still = this.state === 'idle' && !Object.values(inp.held).some(Boolean);
+      this.stillT = still ? this.stillT + 1 : 0;
+      if (this.stillT >= 120) { this.camo = true; fight.say(this, '...', 30); }
+    }
     for (const k in this.st) if (this.st[k] > 0 && --this.st[k] <= 0) delete this.st[k];
     this.trackDirections(inp.pressed);
     this.posHist.push([this.x, this.y]); if (this.posHist.length > 121) this.posHist.shift();
@@ -256,6 +267,7 @@ export class Fighter {
       case 'self':
         if (t === S) {
           if (d.heal) this.hp = Math.min(this.hpMax, this.hp + d.heal);
+          if (d.meter) this.meter = Math.min(METER_MAX, this.meter + d.meter);
           Object.assign(this.st, d.buff || {});
           sfx.select();
         }
@@ -275,6 +287,7 @@ export class Fighter {
         break;
       case 'melee':
         if (activeWindow(d.active) && !this.hitDone) this.box = { box: this.makeBox(d.box), hit: d.hit, sp: d };
+        if (d.reflect && activeWindow(d.active)) this.reflect = 2;
         if (d.wave && t === S) fight.addWave(this);
         if (t === S + d.active && !this.hitDone && d.whiffMeter) this.addMeter(d.whiffMeter);
         end(S + d.active + d.recovery);
@@ -311,6 +324,7 @@ export class Fighter {
       case 'rising':
         if (t === S) { this.vy = d.vy; this.vx = this.face * 1.2; this.invuln = d.invuln; }
         if (activeWindow(d.active)) {
+          if (d.reflect) this.reflect = 2;
           if ((t - S) % d.every === 0) this.hitDone = false;
           if (!this.hitDone) this.box = { box: this.makeBox(d.box), hit: d.hit, sp: d };
         }
@@ -407,6 +421,13 @@ export class Fighter {
       return 'block';
     }
     let mul = att.dmgOut();
+    // Il Pavone, Mimetismo: il primo colpo dopo essere sparito fa il 30% in più
+    if (att.camo) { mul *= 1.3; att.camo = false; att.stillT = 0; }
+    this.camo = false; this.stillT = 0;
+    // Piripinna, Ti ho già inquadrato: la prima mossa speciale subita nel round fa metà danno
+    if (this.ch.id === 'piripinna' && !this.readDone && (att.state === 'special' || src !== att)) {
+      mul *= 0.5; this.readDone = true; att.fight && att.fight.say(this, 'TI HO INQUADRATO!', 30);
+    }
     if (att.bonusNext) { mul *= 2; att.bonusNext = false; att.fight && att.fight.say(att, 'CI SONO RIMASTO MALE!', 30); }
     if (this.st.reduce) mul *= 0.5;
     const bonus = m.bonusVs && this.ch.id === m.bonusVs ? 5 : 0;
@@ -424,9 +445,9 @@ export class Fighter {
     if (m.keepHeld) return 'hit';
     if (m.effect) {
       if (m.effect.stun) { this.state = 'dizzy'; this.t = 0; this.stun = m.effect.stun; this.vx = dir * 1; return 'hit'; }
-      for (const k of ['slow', 'blind', 'invert']) if (m.effect[k]) this.st[k] = Math.max(this.st[k] || 0, m.effect[k]);
+      for (const k of ['slow', 'blind', 'invert', 'weak']) if (m.effect[k]) this.st[k] = Math.max(this.st[k] || 0, m.effect[k]);
     }
-    if (m.knockdown) { this.set('airhit'); this.vy = -2.4; this.vx = dir * 1.6; this.crouching = false; return 'hit'; }
+    if (m.knockdown) { this.set('airhit'); this.vy = m.launch ?? -2.4; this.vx = dir * 1.6; this.crouching = false; return 'hit'; }
     if (!this.grounded) { this.set('airhit'); this.vy = -2.8; this.vx = dir * 2; return 'hit'; }
     this.state = 'hit'; this.t = 0; this.stun = m.hitstun; this.vx = dir * m.push;
     return 'hit';

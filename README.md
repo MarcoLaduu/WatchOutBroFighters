@@ -72,7 +72,10 @@ assorbe la rete: si sceglie a ogni partita in base al ping misurato (da 3 a 12 f
 in `src/net.js`); in basso durante il combattimento si vedono ping e ritardo. I tasti viaggiano su un
 canale veloce senza ritrasmissioni e ogni pacchetto ripete quelli non ancora confermati, così un pacchetto
 perso non blocca la partita. Se uno dei due mette in pausa, la partita si ferma per tutti e due.
-Con alcune reti (alcune connessioni mobili o aziendali) il collegamento diretto può non riuscire.
+Per giocare da reti diverse (es. Wi-Fi di casa contro 4G) serve un server TURN che faccia da ponte quando
+il collegamento diretto non riesce: si usa Open Relay di Metered, gratis fino a 20 GB al mese (una partita
+usa pochi MB). Crea un account su https://dashboard.metered.ca/signup?tool=turnserver e copia username,
+password e indirizzi delle credenziali TURN in `src/turn.js`. Senza, l'online funziona di sicuro solo sulla stessa rete.
 
 ### Da telefono o tablet
 
@@ -96,6 +99,9 @@ i comandi touch spariscono.
 | Bro | Placcaggio, Calcio di punizione, Mischia | Meta! |
 | Mc | Cortocircuito, Dribbling, Schedina | Il re del calcetto |
 | Drrrrrrago | Drrrrrrago!, Gadget omaggio, In diretta | Drago supremo |
+| Piripinna | Schiacciata, Muro, Bagher, Senza peli sulla lingua | Sentenza dell'Aia |
+| Il Pavone | Piume, Ruota, Coltura batterica, Grande davi! | Selezione naturale |
+| Ilary Head | Nuvola di IQOS, Sei in lista!, In castigo!, Dopo-serata | Tutti in lista! |
 
 Ogni super è una piccola scena animata, con pose ed effetti propri.
 
@@ -113,6 +119,7 @@ src/
   input.js           tastiera, controller e touch dei due giocatori
   touch.js           comandi sullo schermo per telefono e tablet
   net.js             gioco online: collegamento PeerJS, codici stanza, lockstep dei tasti
+  turn.js            dati del server TURN (Metered) per giocare online da reti diverse
   audio.js           effetti sonori sintetizzati e musica in giro continuo
   screens.js         titolo, menu, comandi, selezione, VS, pausa, mosse, fine incontro
   ui.js              scritte (Press Start 2P + frecce e simboli disegnati in pixel) e riquadri

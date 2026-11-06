@@ -86,12 +86,19 @@ export class FightView {
 
     // zone (nuvole di fumo) e trappole
     for (const z of fight.zones) {
-      const col = z.type === 'slow' ? 0xb8c8b0 : 0xc8a8e8, fade = Math.min(1, (z.dur - z.t) / 30);
+      const fade = Math.min(1, (z.dur - z.t) / 30);
+      if (z.type === 'culture') { this.drawCulture(g, z, fade, clock); continue; }
+      const col = z.type === 'slow' ? 0xb8c8b0 : z.type === 'smoke' ? 0xe8e4f0 : 0xc8a8e8;
       for (let i = 0; i < 9; i++) {
         const a = i * 0.7 + z.t * 0.02, rr = z.r * (0.35 + (i % 3) * 0.22);
         g.fillStyle(col, 0.22 * fade);
         g.fillCircle(z.x + Math.cos(a) * rr * 0.8, GROUND - 22 + Math.sin(a * 1.3) * 10, 10 + (i % 3) * 3);
       }
+    }
+    // Ruota del Pavone: la coda aperta dietro di lui
+    for (const f of fight.f) {
+      if (f.state === 'special' && f.sp && f.sp.fan) this.drawFan(g, f.x - f.face * 4, f.y - 30, Math.min(1, f.t / 6), clock);
+      if (f.state === 'super' && f.cine && f.cine.fx) for (const e of f.cine.fx) if (e.type === 'fan') this.drawFan(g, e.x, e.y, e.k, clock, e.big);
     }
     for (const tr of fight.traps) {
       g.fillStyle(0x1a1410, 1); g.fillRect(tr.x - 4, GROUND - 7, 8, 7);
@@ -122,7 +129,7 @@ export class FightView {
       if (v) { rot = v.rot || 0; x += v.dx || 0; y += v.dy || 0; }
       s.setPosition(x, y).setRotation(rot);
       const blink = (f.invuln > 0 && f.state === 'special' && f.sp && f.sp.kind === 'teleport');
-      s.setAlpha(v && v.alpha != null ? v.alpha : blink ? 0.4 : 1);
+      s.setAlpha(v && v.alpha != null ? v.alpha : blink ? 0.4 : f.camo ? 0.45 : 1);
       s.setVisible(!(v && v.hide));
       if (v && v.tint != null && !(f.flash > 0)) s.setTint(v.tint).setTintMode(Phaser.TintModes.MULTIPLY);
       else if (f.flash > 0) s.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
@@ -176,7 +183,32 @@ export class FightView {
     }
     for (const o of fight.overlays) this.drawOverlay(fx, o, clock);
     // effetti delle super in corso
-    for (const f of fight.f) if (f.state === 'super' && f.cine && f.cine.fx) for (const e of f.cine.fx) this.drawCine(e.type === 'disco' ? g : fx, e, clock);
+    for (const f of fight.f) if (f.state === 'super' && f.cine && f.cine.fx) for (const e of f.cine.fx) if (e.type !== 'fan') this.drawCine(e.type === 'disco' || e.type === 'strobe' ? g : fx, e, clock);
+  }
+
+  // Coda del pavone aperta a ventaglio: k da 0 (chiusa) a 1 (aperta).
+  drawFan(g, cx, cy, k, clock, big = false) {
+    const n = big ? 15 : 11, rMax = (big ? 70 : 34) * k;
+    for (let i = 0; i < n; i++) {
+      const a = Math.PI + (i / (n - 1)) * Math.PI, wob = Math.sin(clock * 0.15 + i) * 0.03;
+      const ex = cx + Math.cos(a + wob) * rMax, ey = cy + Math.sin(a + wob) * rMax * 0.9;
+      g.lineStyle(2, 0x2f8a5a, 0.9); g.beginPath(); g.moveTo(cx, cy); g.lineTo(ex, ey); g.strokePath();
+      const er = (big ? 6 : 3.5) * k;
+      g.fillStyle(0x2aa070, 1); g.fillCircle(ex, ey, er + 2);
+      g.fillStyle(0xd8c070, 1); g.fillCircle(ex, ey, er + 0.5);
+      g.fillStyle(0x1a3c9c, 1); g.fillCircle(ex, ey, er * 0.7);
+      g.fillStyle(0x3fd0d0, 1); g.fillCircle(ex, ey, er * 0.3);
+    }
+  }
+
+  // Coltura batterica: macchia verde con bollicine.
+  drawCulture(g, z, fade, clock) {
+    g.fillStyle(0x6ac04a, 0.35 * fade); g.fillEllipse(z.x, GROUND - 1, z.r * 2, 8);
+    g.fillStyle(0x9ae070, 0.5 * fade); g.fillEllipse(z.x, GROUND - 1, z.r * 1.2, 4);
+    for (let i = 0; i < 6; i++) {
+      const k = ((z.t * 0.02 + i / 6) % 1), x = z.x + Math.sin(i * 2.1) * z.r * 0.8;
+      g.fillStyle(0xb8f090, (1 - k) * 0.8 * fade); g.fillCircle(x, GROUND - 3 - k * 18, 1.5 + (i % 2));
+    }
   }
 
   // Effetti delle scene delle super (li prepara supers.js in f.cine.fx a ogni fotogramma).
@@ -266,6 +298,93 @@ export class FightView {
         for (let i = 0; i < 6; i++) R(e.x + ((i * 13 + e.t * 2) % 30) - 15, e.y - ((i * 9 + e.t * 3) % 60), 2, 4, 0xc0ffc8, 0.8);
         break;
       case 'dragon': this.drawDragon(g, e, clock); break;
+      // --- Piripinna ---
+      case 'dossier': { // fascicolo aperto in mano
+        const w = Math.round(6 + 6 * e.open), x0 = e.x - (e.face > 0 ? 0 : w);
+        R(x0 - 1, e.y - 1, w + 2, 10, 0x1a1410); R(x0, e.y, w, 8, 0xc8a050); R(x0 + 1, e.y + 1, w - 2, 6, 0xf4f2ee);
+        for (let i = 0; i < 3; i++) R(x0 + 2, e.y + 2 + i * 2, w - 4, 1, 0x8a8a9a);
+        break;
+      }
+      case 'gavel': { // martelletto che cala sopra l'avversario
+        const a = -0.9 + e.k * 0.9, cx = e.x + 10, cy = e.y;
+        const hx = cx + Math.cos(Math.PI + a) * 16, hy = cy + Math.sin(Math.PI + a) * 16;
+        g.lineStyle(3, 0x1a1410, 1); g.beginPath(); g.moveTo(cx, cy); g.lineTo(hx, hy); g.strokePath();
+        g.lineStyle(2, 0x8a5a2a, 1); g.beginPath(); g.moveTo(cx, cy); g.lineTo(hx, hy); g.strokePath();
+        R(hx - 6, hy - 4, 12, 8, 0x1a1410); R(hx - 5, hy - 3, 10, 6, 0x6a3a1a); R(hx - 5, hy - 3, 10, 1, 0x9a6a3a);
+        break;
+      }
+      case 'bars': { // sbarre della cella che scendono
+        if (e.k <= 0) break;
+        const top = GROUND - 78, h = Math.round(78 * e.k);
+        R(e.x - 24, top, 48, 3, 0x2a2a32); R(e.x - 24, top + h - 3, 48, 3, 0x2a2a32);
+        for (let i = 0; i < 7; i++) { R(e.x - 22 + i * 7, top, 2, h, 0x5a5a66); R(e.x - 22 + i * 7, top, 1, h, 0x9a9aa8); }
+        break;
+      }
+      // --- Il Pavone ---
+      case 'spiral': { // occhi ipnotizzati
+        for (let i = 0; i < 10; i++) {
+          const a = e.t * 0.3 + i * 0.6, r = 2 + i * 1.1;
+          R(e.x + Math.cos(a) * r - 1, e.y + Math.sin(a) * r - 1, 2, 2, i % 2 ? 0x3fd0d0 : 0x1a3c9c);
+        }
+        break;
+      }
+      case 'dna': { // doppia elica attorno all'avversario
+        const hgt = 70 * e.k;
+        for (let i = 0; i < 24; i++) {
+          const yy = e.y - 4 - (i / 24) * hgt, a = e.t * 0.25 + i * 0.55;
+          const x1 = e.x + Math.sin(a) * 16, x2 = e.x + Math.sin(a + Math.PI) * 16;
+          if (i % 3 === 0) R(Math.min(x1, x2), yy, Math.abs(x2 - x1), 1, 0xf4f2ee, 0.6);
+          R(x1 - 1, yy - 1, 3, 3, Math.cos(a) > 0 ? 0x3ddc84 : 0x2a8a4a);
+          R(x2 - 1, yy - 1, 3, 3, Math.cos(a + Math.PI) > 0 ? 0x5aa0ff : 0x2a4a9a);
+        }
+        break;
+      }
+      // --- Ilary Head ---
+      case 'strobe': { // luci stroboscopiche della serata
+        const cols = [0xff40c0, 0x40e0ff, 0xffe040, 0x9a5aff];
+        if (Math.floor(e.t / 4) % 3 === 0) { g.fillStyle(0xffffff, 0.06); g.fillRect(0, 0, W, H); }
+        for (let i = 0; i < 4; i++) {
+          const a = e.t * 0.07 + i * 1.6, x = W / 2 + Math.cos(a) * 140;
+          g.fillStyle(cols[(i + Math.floor(e.t / 10)) % 4], 0.13);
+          g.fillTriangle(W / 2 - 6 + i * 4, 0, x - 26, H, x + 26, H);
+        }
+        break;
+      }
+      case 'megaphone': {
+        const d = e.face, x = e.x;
+        R(x - (d > 0 ? 0 : 8), e.y - 3, 8, 6, 0x1a1410); R(x - (d > 0 ? -1 : 7), e.y - 2, 6, 4, 0xe04a3a);
+        R(x + (d > 0 ? 7 : -10), e.y - 5, 3, 10, 0x1a1410); R(x + (d > 0 ? 7 : -9), e.y - 4, 2, 8, 0xf4f2ee);
+        if (Math.floor(e.t / 4) % 2) for (let i = 0; i < 3; i++) R(x + d * (14 + i * 4), e.y - 6 + i * 4, 3, 1, 0xfff0c0);
+        break;
+      }
+      case 'flyers': { // volantini che piovono
+        for (let i = 0; i < 14; i++) {
+          const x = (i * 53 + Math.sin(e.t * 0.05 + i) * 12) % W, y = ((e.t * (1.2 + (i % 3) * 0.4) + i * 37) % (H + 20)) - 20;
+          R(x, y, 5, 7, 0x1a1410); R(x + 1, y + 1, 3, 5, [0xff40c0, 0xffe040, 0x40e0ff][i % 3]); R(x + 1, y + 2, 3, 1, 0xf4f2ee);
+        }
+        break;
+      }
+      case 'crowd': { // sagome della folla che corrono verso l'avversario
+        for (let i = 0; i < 5; i++) {
+          const k = (e.t - i * 10) / 26;
+          if (k < 0 || k > 1.3) continue;
+          const x = e.x0 + (e.x1 - e.x0) * k, bob = Math.floor((e.t + i * 3) / 4) % 2;
+          const col = [0x2a1e3a, 0x3a2040, 0x1e2a3a][i % 3];
+          R(x - 5, e.y - 34 - bob, 10, 22, col); R(x - 3, e.y - 42 - bob, 7, 8, col);       // busto e testa
+          R(x - 5, e.y - 12, 4, 12, col); R(x + 1, e.y - 12 + bob, 4, 12 - bob, col);        // gambe
+          R(x + e.face * 4, e.y - 44 - bob, 2, 10, col);                                      // braccio alzato
+          R(x - 1, e.y - 39 - bob, 2, 1, 0xffe040);                                            // occhiali luminosi
+        }
+        break;
+      }
+      case 'sparkler': { // bottiglia del privè con le stelline
+        R(e.x - 3, e.y - 2, 7, 14, 0x1a1410); R(e.x - 2, e.y, 5, 11, 0x2a6a3a); R(e.x - 1, e.y - 6, 3, 5, 0x1a1410); R(e.x - 2, e.y + 4, 5, 3, 0xf2c230);
+        for (let i = 0; i < 10; i++) {
+          const a = (e.t * 0.6 + i * 0.63), r = 3 + ((e.t + i * 5) % 9);
+          R(e.x + Math.cos(a) * r, e.y - 8 + Math.sin(a) * r * 0.8 - r * 0.6, 1, 1, i % 2 ? 0xffffff : 0xffe060);
+        }
+        break;
+      }
     }
   }
 
@@ -325,6 +444,17 @@ export class FightView {
         const c = clock % 4 < 2 ? 0x7fe8ff : 0xffffff;
         for (let k = 0; k < 9; k += 2) R(-4 + k, ((k + clock) % 4 < 2 ? -2 : 1), 2, 2, c);
         R(-1, -1, 2, 2, 0xffffff);
+        break;
+      }
+      case 'volley': // pallone da pallavolo
+        R(-3, -2, 7, 5, 0x1a1410); R(-2, -3, 5, 7, 0x1a1410);
+        R(-2, -2, 5, 5, 0xf2e8c8); R(-2, -1, 5, 1, 0x2f6fd0); R(0, -2, 1, 5, 0xf2c230);
+        if (p.vy > 0) for (let k = 1; k < 4; k++) R(-p.face * k * 4 - 1, -k * 3, 3, 2, 0xffffff, 0.5 - k * 0.12);
+        break;
+      case 'feather': { // piuma di pavone
+        const d = p.face;
+        R(d > 0 ? -5 : 1, 0, 5, 1, 0xd8c070);
+        R(d > 0 ? -1 : -3, -1, 4, 3, 0x2aa070); R(d > 0 ? 0 : -2, -1, 2, 3, 0x1a3c9c); R(d > 0 ? 0 : -1, 0, 1, 1, 0x3fd0d0);
         break;
       }
       case 'gadget0': R(-2, -2, 4, 4, 0xe0b84a); R(-1, -1, 2, 2, 0x7a3fc0); break;

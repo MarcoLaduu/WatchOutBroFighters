@@ -130,6 +130,12 @@ export class Fight {
         else if (p.g) p.done = true;
       }
       const target = this.opp(p.owner);
+      // Muro / Ruota: il proiettile torna indietro e diventa di chi l'ha respinto
+      if (!p.done && target.reflect > 0 && overlap2(p, target)) {
+        p.owner = target; p.vx = -p.vx; p.face = -(p.face || 1); p.x += p.vx * 2; if (p.vy > 0) p.vy = -p.vy * 0.5;
+        this.sparks.push({ x: p.x, y: p.y, t: 0 }); sfx.block(); this.say(target, 'RESPINTO!', 20);
+        continue;
+      }
       if (!p.done && overlap2(p, target)) {
         if (p.burst) { this.burst(p); continue; }
         if (p.multi) {
@@ -153,6 +159,8 @@ export class Fight {
       const o = this.opp(z.owner);
       if (Math.abs(o.x - z.x) < z.r && o.hp > 0) {
         if (z.type === 'slow') o.st.slow = Math.max(o.st.slow || 0, 30);
+        if (z.type === 'culture') { o.st.slow = Math.max(o.st.slow || 0, 30); if (!z.hitOnce) { z.hitOnce = true; this.say(o, 'BLEAH!', 30); } }
+        if (z.type === 'smoke' && !z.hitOnce) { z.hitOnce = true; o.st.blind = Math.max(o.st.blind || 0, 70); this.say(o, 'COF COF!', 30); }
         if (z.type === 'invert' && !z.hitOnce) { z.hitOnce = true; o.st.invert = 180; this.say(o, '?!', 40); }
       }
     }

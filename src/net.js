@@ -9,7 +9,33 @@ const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // niente 0/O e 1/I, che si
 export const DELAY = 4;                          // ritardo di partenza dei tasti in fotogrammi (~67 ms); poi si adatta al ping
 const ACTS = ['left', 'right', 'up', 'down', 'punch', 'kick', 'block'];
 
+import { TURN } from './turn.js';
+
 let Peer = null;
+
+// Server per attraversare le reti: STUN di Google (gratis) e, se configurato, il TURN di Metered (turn.js).
+let iceCache = null;
+async function iceServers() {
+  if (iceCache) return iceCache;
+  const list = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
+  if (TURN.username && TURN.credential) {
+    // credenziali fisse dalla dashboard di Metered
+    list.push({ urls: TURN.urls, username: TURN.username, credential: TURN.credential });
+  } else if (TURN.app && TURN.apiKey) {
+    try {
+      const ctrl = new AbortController(); const tm = setTimeout(() => ctrl.abort(), 5000);
+      const r = await fetch(`https://${TURN.app}.metered.live/api/v1/turn/credentials?apiKey=${encodeURIComponent(TURN.apiKey)}`, { signal: ctrl.signal });
+      clearTimeout(tm);
+      if (r.ok) { const turn = await r.json(); if (Array.isArray(turn)) list.push(...turn); }
+    } catch { /* senza TURN si prova lo stesso col collegamento diretto */ }
+  } else {
+    // server TURN pubblici di PeerJS (gratuiti ma non sempre affidabili)
+    list.push({ urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' });
+  }
+  iceCache = list;
+  return list;
+}
+export const hasTurn = () => !!((TURN.username && TURN.credential) || (TURN.app && TURN.apiKey));
 async function loadPeer() {
   if (Peer) return Peer;
   if (window.__MockPeer) return (Peer = window.__MockPeer); // solo per i test
@@ -53,11 +79,12 @@ export class NetSession {
   async host_() {
     this.host = true;
     const P = await loadPeer();
+    const config = { iceServers: await iceServers() };
     for (let tries = 0; tries < 5; tries++) {
       this.code = randomCode();
       const ok = await new Promise(res => {
         this.status = 'connecting';
-        const peer = new P(PREFIX + this.code, { debug: 1 });
+        const peer = new P(PREFIX + this.code, { debug: 1, config });
         peer.on('open', () => { this.peer = peer; res(true); });
         peer.on('error', e => {
           if (this.status === 'connected') return; // a partita avviata conta solo il collegamento diretto
@@ -84,13 +111,14 @@ export class NetSession {
     this.host = false; this.code = code;
     this.status = 'connecting';
     const P = await loadPeer();
-    const peer = new P(undefined, { debug: 1 });
+    const config = { iceServers: await iceServers() };
+    const peer = new P(undefined, { debug: 1, config });
     this.peer = peer;
     peer.on('error', e => { if (this.status !== 'connected') this.fail(errText(e)); });
     peer.on('open', () => {
       const conn = peer.connect(PREFIX + code, { label: 'ctl', reliable: true, serialization: 'json' });
       this.attach(conn);
-      setTimeout(() => { if (this.status === 'connecting') this.fail('L\'amico non risponde'); }, 15000);
+      setTimeout(() => { if (this.status === 'connecting') this.fail(hasTurn() ? 'L\'amico non risponde' : 'Collegamento non riuscito: per giocare da reti diverse serve il server TURN (vedi src/turn.js)'); }, 15000);
     });
   }
 

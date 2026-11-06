@@ -379,4 +379,115 @@ export const SCRIPTS = {
       if (t - c.back > 24) finishSuper(f, opp);
     }
   },
+
+  // ---------- Piripinna: Sentenza dell'Aia ----------
+  // Apre il fascicolo e legge i capi d'accusa (un colpo per accusa), martelletto: COLPEVOLE!
+  // Scendono le sbarre della cella e lei chiude con una schiacciata.
+  piripinna(f, opp, fight, c) {
+    const t = c.t;
+    if (t < 18) {
+      f.view = { anim: 'typing', idx: 0 };
+      c.fx.push({ type: 'dossier', x: f.x + f.face * 14, y: f.y - 38 + f.ch.oy, face: f.face, open: Math.min(1, t / 10) });
+      if (t === 17) {
+        if (catchable(opp)) { grab(f, opp); c.caught = true; c.x0 = f.x; sfx.select(); }
+        else { fight.say(f, 'ASSOLTO... PER ORA', 30); c.miss = true; }
+      }
+      return;
+    }
+    if (c.miss) return whiff(f, opp, c);
+    const CHARGES = ['SPAM DI MOSSE!', 'PARATA CONTINUA!', 'TROPPI SALTI!', 'ZERO RISPETTO!'];
+    if (t < 100) {
+      opp.view = { anim: 'hit', idx: Math.floor(t / 7) % 2 };
+      const i = Math.floor((t - 24) / 14), local = (t - 24) % 14;
+      f.view = t >= 24 && i < 4 && local < 6 ? { anim: 'point', idx: 0 } : { anim: 'typing', idx: 0 };
+      if (t < 80) c.fx.push({ type: 'dossier', x: f.x + f.face * 14, y: f.y - 38 + f.ch.oy, face: f.face, open: 1 });
+      if (t >= 24 && i < 4 && local === 0) { fight.say(opp, CHARGES[i], 14, true); hitOpp(f, opp, fight, 5); }
+      if (t >= 78) c.fx.push({ type: 'gavel', x: opp.x, y: opp.y - 76 + opp.ch.oy, k: Math.min(1, (t - 78) / 8) });
+      if (t === 86) { fight.say(f, 'COLPEVOLE!', 40, true); fight.overlay('flash', 8); fight.shake = 8; sfx.heavy(); }
+      if (t >= 86) c.fx.push({ type: 'bars', x: opp.x, k: Math.min(1, (t - 86) / 8) });
+      return;
+    }
+    // salto e schiacciata
+    const k = Math.min(1, (t - 100) / 24);
+    c.fx.push({ type: 'bars', x: opp.x, k: 1 - Math.max(0, (t - 112) / 8) });
+    opp.view = { anim: 'hit', idx: 1 };
+    if (t <= 124) {
+      f.x = clampX(lerp(c.x0, opp.x - f.face * 20, Math.min(1, k * 2)));
+      f.y = GROUND - 4 * k * (1 - k) * 44;
+      f.view = { anim: 'uppercut', idx: t < 112 ? 0 : 1 };
+      if (t < 112) c.fx.push({ type: 'jball', x: f.x + f.face * 6, y: f.y - 66 + f.ch.oy });
+    }
+    if (t === 112) { fight.say(f, 'SCHIACCIATA!', 30, true); release(f, opp, fight, 14); }
+    if (t > 124) { f.y = GROUND; f.view = { anim: 'land', idx: 0 }; }
+    if (t > 136) finishSuper(f, opp);
+  },
+
+  // ---------- Il Pavone: Selezione naturale ----------
+  // Apre una coda enorme che ipnotizza, poi una doppia elica di DNA avvolge l'avversario. GRANDE DAVI!
+  pavone(f, opp, fight, c) {
+    const t = c.t;
+    const fan = k => c.fx.push({ type: 'fan', x: f.x - f.face * 4, y: f.y - 34, k, big: true });
+    if (t < 24) {
+      f.view = { anim: 'power', idx: Math.floor(t / 6) % 2 };
+      fan(t / 24);
+      if (t === 23) {
+        if (catchable(opp)) { grab(f, opp); c.caught = true; sfx.select(); }
+        else { fight.say(f, 'MMH.', 30); c.miss = true; }
+      }
+      return;
+    }
+    if (c.miss) { fan(Math.max(0, 1 - (c.t - 24) / 10)); return whiff(f, opp, c); }
+    fan(t < 112 ? 1 : Math.max(0, 1 - (t - 112) / 16));
+    if (t < 60) {
+      f.view = { anim: 'power', idx: 1 };
+      opp.view = { anim: 'hit', idx: 1 };
+      c.fx.push({ type: 'spiral', x: opp.x, y: opp.y - 54 + opp.ch.oy, t });
+      if (t === 30) fight.say(opp, 'OOOH...', 30);
+      return;
+    }
+    opp.view = { anim: 'hurt', idx: 0 };
+    if (t < 112) {
+      f.view = { anim: 'point', idx: 0 };
+      c.fx.push({ type: 'dna', x: opp.x, y: opp.y + opp.ch.oy, t, k: Math.min(1, (t - 60) / 12) });
+      if (t >= 64 && (t - 64) % 10 === 0 && t <= 104) hitOpp(f, opp, fight, 4, { stop: 3 });
+      return;
+    }
+    if (t === 112) fight.say(f, 'GRANDE DAVI!', 40, true);
+    f.view = { anim: 'victory', idx: 0 };
+    if (t === 118) { release(f, opp, fight, 14); fight.overlay('flash', 8); }
+    if (t > 134) finishSuper(f, opp);
+  },
+
+  // ---------- Ilary Head: Tutti in lista! ----------
+  // Musica e luci, "TUTTI IN PISTA!": piovono flyer e una folla travolge l'avversario.
+  // Finale nel privè: la bottiglia con le stelline esplode.
+  ilaryHead(f, opp, fight, c) {
+    const t = c.t;
+    c.fx.push({ type: 'strobe', t });
+    if (t < 20) {
+      f.view = { anim: 'shout', idx: 0 };
+      c.fx.push({ type: 'megaphone', x: f.x + f.face * 12, y: f.y - 46 + f.ch.oy, face: f.face, t });
+      if (t === 4) fight.say(f, 'DJ, ALZA!', 24, true);
+      if (t === 19) {
+        if (catchable(opp)) { grab(f, opp); c.caught = true; sfx.select(); }
+        else { fight.say(f, 'NON SEI IN LISTA', 30); c.miss = true; }
+      }
+      return;
+    }
+    if (c.miss) return whiff(f, opp, c);
+    c.fx.push({ type: 'flyers', t });
+    if (t < 84) {
+      f.view = { anim: 'dance', idx: Math.floor(t / 8) % 4 };
+      opp.view = { anim: 'hit', idx: Math.floor(t / 5) % 2 };
+      c.fx.push({ type: 'crowd', x0: f.x - f.face * 40, x1: opp.x + f.face * 60, y: GROUND, t: t - 20, face: f.face });
+      if (t >= 30 && (t - 30) % 10 === 0 && t <= 70) { hitOpp(f, opp, fight, 4, { stop: 3 }); if (t === 50) fight.say(opp, 'AIUTO!', 20); }
+      return;
+    }
+    f.view = { anim: 'lift', idx: 0 };
+    opp.view = { anim: 'hit', idx: 1 };
+    if (t < 100) c.fx.push({ type: 'sparkler', x: f.x + f.face * 2, y: f.y - 70 + f.ch.oy, t });
+    if (t === 86) fight.say(f, 'SI VA NEL PRIVÈ!', 30, true);
+    if (t === 100) { fight.overlay('boom', 18, opp.x); release(f, opp, fight, 14); }
+    if (t > 124) finishSuper(f, opp);
+  },
 };
