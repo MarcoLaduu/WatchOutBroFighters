@@ -168,14 +168,14 @@ export const RIGS = {
 
   pavone: {
     draw: drawPavone, neckY: 21, torsoBottom: 45,
-    shoulderB: [10, 24], shoulderF: [37, 24],
-    hipB: [17.5, 45], hipF: [29.5, 45], ankleB: [17.5, 57], ankleF: [29.5, 57],
-    fistBox: [30, 17, 35, 22], bootBox: [26, 58, 35, 61], ankleInBoot: [30, 57],
+    shoulderB: [13, 24], shoulderF: [34, 24],
+    hipB: [18.5, 45], hipF: [28.5, 45], ankleB: [18.5, 57], ankleF: [28.5, 57],
+    fistBox: [30, 17, 35, 22], bootBox: [26, 58, 33, 61], ankleInBoot: [28.5, 57],
     limbs: {
-      upper: 8, fore: 10, wUpper: 4, wFore: 4,
+      upper: 8, fore: 10, wUpper: 3, wFore: 3,
       upperBands: all('#f2f2ee'),
       foreBands: [[0, 0.85, '#f2f2ee'], [0.85, 1, '#c8c8c2']],
-      thigh: 6, shin: 6, wThigh: 8, wShin: 7,
+      thigh: 6, shin: 6, wThigh: 6, wShin: 6,
       thighBands: all('#3b4250'), shinBands: all('#3b4250'),
     },
   },

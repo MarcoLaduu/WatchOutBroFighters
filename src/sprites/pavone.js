@@ -1,4 +1,4 @@
-// Il Pavone: camice bianco da biologo con le provette nel taschino, occhiali scuri, mascella squadrata (sprite approvato).
+// Il Pavone: magro e alto, camice bianco da biologo con le provette nel taschino, occhiali scuri, mascella squadrata (sprite approvato).
 import { grid, OUTLINE as OL } from './pix.js';
 
 export function drawPavone(v = {}) {
@@ -6,22 +6,22 @@ export function drawPavone(v = {}) {
   const S = '#ecc6a6', SS = '#c99e7c', HR = '#2b1d16', HL = '#4a3328', EB = '#22160f', EY = '#4a2c1a', GL = '#1e1512';
   const L = { coat: '#f2f2ee', coatS: '#c8c8c2', shirt: '#2f8f8a', pants: '#3b4250', pantsS: '#2a303b', shoe: '#2a2a2a', sole: '#141414' };
   // gambe
-  R(14, 41, 33, 45, L.pants); R(14, 43, 21, 57, L.pants); R(26, 43, 33, 57, L.pants); R(21, 46, 21, 57, L.pantsS); R(33, 46, 33, 57, L.pantsS);
-  R(12, 58, 21, 60, L.shoe); R(26, 58, 35, 60, L.shoe); R(12, 61, 21, 61, L.sole); R(26, 61, 35, 61, L.sole);
+  R(16, 41, 31, 45, L.pants); R(16, 43, 21, 57, L.pants); R(26, 43, 31, 57, L.pants); R(21, 46, 21, 57, L.pantsS); R(31, 46, 31, 57, L.pantsS);
+  R(14, 58, 21, 60, L.shoe); R(26, 58, 33, 60, L.shoe); R(14, 61, 21, 61, L.sole); R(26, 61, 33, 61, L.sole);
   // busto
-  R(13, 22, 34, 40, L.coat); R(12, 29, 35, 39, L.coat); R(32, 24, 34, 40, L.coatS); R(14, 39, 33, 40, L.coatS);
+  R(16, 22, 31, 40, L.coat); R(15, 29, 32, 39, L.coat); R(30, 24, 31, 40, L.coatS); R(17, 39, 30, 40, L.coatS);
   R(21, 22, 26, 34, L.shirt);                                   // camicia/maglia sotto
   R(20, 22, 20, 36, L.coatS); R(27, 22, 27, 36, L.coatS);        // risvolti
   P(21, 22, L.coatS); P(26, 22, L.coatS);
-  { R(28, 30, 31, 31, L.coatS); R(29, 26, 29, 30, '#7fd0c8'); P(29, 25, '#e04a4a'); R(30, 27, 30, 30, '#5aa0e0'); R(15, 30, 17, 31, L.coatS); } // tasca con provette
-  R(13, 40, 34, 40, L.coatS);
+  { R(28, 30, 30, 31, L.coatS); R(29, 26, 29, 30, '#7fd0c8'); P(29, 25, '#e04a4a'); R(30, 27, 30, 30, '#5aa0e0'); R(16, 30, 18, 31, L.coatS); } // tasca con provette
+  R(16, 40, 31, 40, L.coatS);
   function arm(m) {
     const X = x => m ? 47 - x : x;
     const A = (a, b, c, d, col) => { const x0 = Math.min(X(a), X(c)), x1 = Math.max(X(a), X(c)); R(x0, b, x1, d, col); };
-    A(9, 23, 12, 31, L.coat); A(9, 29, 16, 32, L.coat); A(13, 22, 16, 31, L.coat); A(9, 23, 9, 32, L.coatS);
-    A(13, 23, 16, 24, L.coatS);
-    A(17, 22, 17, 32, OL);
-    A(12, 17, 17, 22, S); A(12, 17, 12, 22, SS); A(13, 19, 16, 19, SS);
+    A(12, 23, 14, 31, L.coat); A(12, 29, 16, 31, L.coat); A(15, 22, 16, 30, L.coat); A(12, 23, 12, 31, L.coatS);
+    A(15, 23, 16, 24, L.coatS);
+    A(17, 22, 17, 31, OL);
+    A(13, 17, 17, 22, S); A(13, 17, 13, 22, SS); A(14, 19, 16, 19, SS);
   }
   if (!v.noArms) { arm(0); if (!v.noFrontArm) arm(1); }
   // testa
