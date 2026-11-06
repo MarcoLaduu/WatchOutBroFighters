@@ -1,4 +1,4 @@
-// I 12 personaggi: statistiche dal move set (da 1 a 5, 14 punti in totale) e dati per le animazioni.
+// I 13 personaggi: statistiche dal move set (da 1 a 5, 14 punti in totale) e dati per le animazioni.
 import { drawDocLady } from '../sprites/docLady.js';
 import { drawIlDoc } from '../sprites/ilDoc.js';
 import { drawSocioSpritzu } from '../sprites/socioSpritzu.js';
@@ -11,6 +11,7 @@ import { drawBrodiJ } from '../sprites/brodiJ.js';
 import { drawPiripinna } from '../sprites/piripinna.js';
 import { drawPavone } from '../sprites/pavone.js';
 import { drawIlaryHead } from '../sprites/ilaryHead.js';
+import { drawBroddoris } from '../sprites/broddoris.js';
 
 // oy: di quanti pixel lo sprite parte più in basso (personaggi più bassi).
 // arm/fist: colori del braccio che tira il pugno. leg/shoe: colori della gamba che calcia.
@@ -63,4 +64,8 @@ export const ROSTER = [
     stats: { vita: 2, forza: 3, velocita: 5, salto: 4 },
     style: 'Festaiola velocissima', win: 'Sei in lista. Ci vediamo al privè!',
     arm: '#f2cdb4', fist: '#f2cdb4', leg: '#7d9ccb', shoe: '#f0f0f0' },
+  { id: 'broddoris', name: 'Broddoris', draw: drawBroddoris, oy: 3,
+    stats: { vita: 5, forza: 5, velocita: 2, salto: 2 },
+    style: 'Powerlifter, lento ma pesantissimo', win: 'Tre luci bianche. Nuovo record.',
+    arm: '#efc4a2', fist: '#efc4a2', leg: '#efc4a2', shoe: '#2a2a2a' },
 ];

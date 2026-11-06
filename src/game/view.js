@@ -152,6 +152,15 @@ export class FightView {
         const a = clock * 0.15 + k * 2.1;
         fx.fillStyle(0xffe066, 1); fx.fillRect(f.x + Math.cos(a) * 10 - 1, f.y - 64 + f.ch.oy + Math.sin(a) * 3, 3, 3);
       }
+      // Broddoris: bilanciere sulle spalle (Walkout) e nuvola di magnesite
+      if (f.state === 'special' && f.sp && f.sp.barbell) this.drawBarbell(fx, f.x, f.y - 60 + f.ch.oy);
+      if (f.state === 'special' && f.sp && f.sp.chalk && f.t > 6) {
+        const k = Math.min(1, (f.t - 6) / 12);
+        for (let i = 0; i < 9; i++) {
+          const a = i * 0.7 + clock * 0.03, r = 6 + k * 22 * ((i % 3) + 1) / 3;
+          fx.fillStyle(0xf4f4f0, 0.75 * (1 - k * 0.6)); fx.fillCircle(f.x + f.face * 14 + Math.cos(a) * r, f.y - 34 + f.ch.oy + Math.sin(a) * r * 0.7, 3 + k * 4);
+        }
+      }
       // fiamma di Drrrrrrago
       if (f.state === 'special' && f.sp && f.sp.kind === 'hold' && f.spData.len && !f.spData.released) {
         const L = f.spData.len;
@@ -198,6 +207,18 @@ export class FightView {
       g.fillStyle(0xd8c070, 1); g.fillCircle(ex, ey, er + 0.5);
       g.fillStyle(0x1a3c9c, 1); g.fillCircle(ex, ey, er * 0.7);
       g.fillStyle(0x3fd0d0, 1); g.fillCircle(ex, ey, er * 0.3);
+    }
+  }
+
+  // Bilanciere con i dischi (Walkout e super di Broddoris), orizzontale centrato in (x, y).
+  drawBarbell(g, x, y, half = 30) {
+    g.fillStyle(0x1a1410, 1); g.fillRect(Math.round(x - half - 2), Math.round(y - 1), half * 2 + 4, 4);
+    g.fillStyle(0xb8bcc4, 1); g.fillRect(Math.round(x - half - 1), Math.round(y), half * 2 + 2, 2);
+    for (const sx of [-1, 1]) {
+      const px = Math.round(x + sx * (half - 6));
+      g.fillStyle(0x1a1410, 1); g.fillRect(px - 3, Math.round(y) - 9, 6, 20);
+      g.fillStyle(0xc0302a, 1); g.fillRect(px - 2, Math.round(y) - 8, 2, 18);
+      g.fillStyle(0x2a5ac0, 1); g.fillRect(px, Math.round(y) - 6, 2, 14);
     }
   }
 
@@ -298,6 +319,21 @@ export class FightView {
         for (let i = 0; i < 6; i++) R(e.x + ((i * 13 + e.t * 2) % 30) - 15, e.y - ((i * 9 + e.t * 3) % 60), 2, 4, 0xc0ffc8, 0.8);
         break;
       case 'dragon': this.drawDragon(g, e, clock); break;
+      // --- Broddoris ---
+      case 'judges': { // i tre giudici di gara con le loro luci (sotto le barre della vita)
+        const y = 74;
+        for (let i = 0; i < 3; i++) {
+          const x = W / 2 - 40 + i * 40, on = e.lights[i];
+          R(x - 1, y + 6, 2, 10, 0x3a3a44);
+          R(x - 6, y - 6, 12, 12, 0x1a1410); R(x - 5, y - 5, 10, 10, on ? 0xffffff : 0x4a2a2a);
+          if (on) { g.fillStyle(0xffffff, 0.25); g.fillCircle(x, y, 12); }
+        }
+        break;
+      }
+      case 'platform': // pedana di legno
+        R(e.x - 40, GROUND - 1, 80, 4, 0x1a1410); R(e.x - 39, GROUND, 78, 2, 0xb08040); R(e.x - 39, GROUND, 78, 1, 0xd0a060);
+        break;
+      case 'barbell': this.drawBarbell(g, e.x, e.y, e.half || 30); break;
       // --- Piripinna ---
       case 'dossier': { // fascicolo aperto in mano
         const w = Math.round(6 + 6 * e.open), x0 = e.x - (e.face > 0 ? 0 : w);
@@ -444,6 +480,14 @@ export class FightView {
         const c = clock % 4 < 2 ? 0x7fe8ff : 0xffffff;
         for (let k = 0; k < 9; k += 2) R(-4 + k, ((k + clock) % 4 < 2 ? -2 : 1), 2, 2, c);
         R(-1, -1, 2, 2, 0xffffff);
+        break;
+      }
+      case 'plate': { // disco da 20 che rotola
+        const a = clock * 0.3 * p.face;
+        g.fillStyle(0x1a1410, 1); g.fillCircle(0, 0, 6);
+        g.fillStyle(0x2a5ac0, 1); g.fillCircle(0, 0, 5);
+        g.fillStyle(0x1a1410, 1); g.fillCircle(0, 0, 1.5);
+        R(Math.round(Math.cos(a) * 3) - 1, Math.round(Math.sin(a) * 3) - 1, 2, 2, 0xf4f2ee);
         break;
       }
       case 'volley': // pallone da pallavolo

@@ -490,4 +490,45 @@ export const SCRIPTS = {
     if (t === 100) { fight.overlay('boom', 18, opp.x); release(f, opp, fight, 14); }
     if (t > 124) finishSuper(f, opp);
   },
+
+  // ---------- Broddoris: Tre luci bianche ----------
+  // Sale in pedana, afferra l'avversario e lo alza come un bilanciere: a ogni alzata un giudice
+  // accende la luce bianca (BUONA!). Con tre luci: NUOVO RECORD! e lo lascia cadere.
+  broddoris(f, opp, fight, c) {
+    if (!c.caught && !c.miss) {
+      const r = rush(f, opp, fight, c, { speed: 4.5, max: 36, anim: 'walkF' });
+      if (r === 'caught') { fight.say(f, 'IN PEDANA!', 30); c.lights = [false, false, false]; c.px = f.x; }
+      if (r === 'miss') c.miss = true;
+      return;
+    }
+    if (c.miss) return whiff(f, opp, c);
+    const t = c.t - c.t0;
+    c.fx.push({ type: 'platform', x: c.px });
+    c.fx.push({ type: 'judges', lights: c.lights });
+    // tre alzate da 28 fotogrammi: giù (accosciato) e su (braccia in alto)
+    const rep = Math.floor(t / 28), local = t % 28;
+    let k = 0; // 0 = a terra, 1 = sopra la testa
+    if (rep < 3) {
+      k = local < 8 ? 0 : Math.min(1, (local - 8) / 10);
+      f.view = local < 8 ? { anim: 'crouch', idx: 0 } : { anim: 'lift', idx: k < 1 ? 1 : 0 };
+      if (local === 20) {
+        c.lights[rep] = true; fight.say(f, 'BUONA!', 16, true); sfx.select();
+        hitOpp(f, opp, fight, 6, { stop: 4 });
+      }
+    } else {
+      k = 1; f.view = { anim: 'lift', idx: 0 };
+      if (t === 86) { fight.say(f, 'NUOVO RECORD!', 40, true); fight.overlay('flash', 8); }
+    }
+    // l'avversario come bilanciere: orizzontale, da terra a sopra la testa
+    opp.view = { anim: 'hurt', idx: 0, rot: f.face * Math.PI / 2, depth: 3 };
+    opp.x = f.x - f.face * 26;
+    opp.y = lerp(GROUND - 8, f.y - 66 + f.ch.oy, k);
+    if (t === 100) {
+      opp.y = GROUND - 6; opp.x = clampX(f.x + f.face * 4);
+      release(f, opp, fight, 16);
+      fight.overlay('dust', 18, opp.x); fight.shake = 12;
+    }
+    if (t >= 100) f.view = { anim: 'victory', idx: 0 };
+    if (t > 128) finishSuper(f, opp);
+  },
 };

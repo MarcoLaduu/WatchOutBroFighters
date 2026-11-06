@@ -17,6 +17,7 @@ import { drawBrodiJ } from '../sprites/brodiJ.js';
 import { drawPiripinna } from '../sprites/piripinna.js';
 import { drawPavone } from '../sprites/pavone.js';
 import { drawIlaryHead } from '../sprites/ilaryHead.js';
+import { drawBroddoris } from '../sprites/broddoris.js';
 
 const all = c => [[0, 1, c]];
 
@@ -192,6 +193,20 @@ export const RIGS = {
       foreBandsF: [[0, 0.78, '#f2cdb4'], [0.78, 0.92, '#f2c230'], [0.92, 1, '#f2cdb4']],
       thigh: 5, shin: 5, wThigh: 8, wShin: 7,
       thighBands: all('#7d9ccb'), shinBands: all('#7d9ccb'),
+    },
+  },
+
+  broddoris: {
+    draw: drawBroddoris, neckY: 22, torsoBottom: 47,
+    shoulderB: [9, 26], shoulderF: [38, 26],
+    hipB: [18, 46], hipF: [29, 46], ankleB: [18, 57], ankleF: [29, 57],
+    fistBox: [30, 21, 36, 26], bootBox: [25, 58, 35, 61], ankleInBoot: [29, 57],
+    limbs: {
+      upper: 7, fore: 10, wUpper: 6, wFore: 5,
+      upperBands: [[0, 0.35, '#1e1e24'], [0.35, 1, '#efc4a2']],
+      foreBands: [[0, 0.8, '#efc4a2'], [0.8, 0.95, '#3a3a44'], [0.95, 1, '#efc4a2']],
+      thigh: 6, shin: 6, wThigh: 9, wShin: 8,
+      thighBands: [[0, 0.5, '#2a2a32'], [0.5, 1, '#efc4a2']], shinBands: [[0, 0.8, '#efc4a2'], [0.8, 1, '#2a2a2a']],
     },
   },
 };

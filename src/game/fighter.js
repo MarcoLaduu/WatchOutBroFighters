@@ -444,7 +444,8 @@ export class Fighter {
     if (this.hp <= 0) { this.holder = null; this.set('ko'); this.y = Math.min(this.y, GROUND); this.vy = -3.6; this.vx = dir * 2.2; this.crouching = false; sfx.ko(); return 'ko'; }
     if (m.keepHeld) return 'hit';
     if (m.effect) {
-      if (m.effect.stun) { this.state = 'dizzy'; this.t = 0; this.stun = m.effect.stun; this.vx = dir * 1; return 'hit'; }
+      // Broddoris, Sangue freddo: non resta mai stordito
+      if (m.effect.stun && this.ch.id !== 'broddoris') { this.state = 'dizzy'; this.t = 0; this.stun = m.effect.stun; this.vx = dir * 1; return 'hit'; }
       for (const k of ['slow', 'blind', 'invert', 'weak']) if (m.effect[k]) this.st[k] = Math.max(this.st[k] || 0, m.effect[k]);
     }
     if (m.knockdown) { this.set('airhit'); this.vy = m.launch ?? -2.4; this.vx = dir * 1.6; this.crouching = false; return 'hit'; }

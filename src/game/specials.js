@@ -134,6 +134,20 @@ export const SPECIALS = {
     DDK: { name: 'Dopo-serata', kind: 'self', anim: 'dance', startup: 12, recovery: 16, shout: 'DOPO-SERATA!', buff: { fast: 300 } },
     super: { name: 'Tutti in lista!', kind: 'cine', shout: 'TUTTI IN PISTA!' },
   },
+  broddoris: {
+    // un disco da 20 kg che rotola rasoterra: si para da accovacciati
+    DFP: { name: 'Disco da 20', kind: 'proj', anim: 'sweep', startup: 12, recovery: 20,
+      proj: [{ type: 'plate', vx: 3.2, y: -7, w: 9, h: 9, life: 110, hit: hit(9, { level: 'low', push: 2 }) }] },
+    // avanza col bilanciere sulle spalle e non si ferma nemmeno se lo colpiscono
+    BFP: { name: 'Walkout', kind: 'dash', anim: 'carry', startup: 8, active: 34, recovery: 16, speed: 2.4, armor: true, every: 12, barbell: true,
+      shout: 'WALKOUT!', box: [0, 28, -60, -14], hit: hit(5, { push: 3 }) },
+    // batte le mani piene di gesso: nuvola bianca che acceca chi è vicino
+    DBK: { name: 'Magnesite', kind: 'melee', anim: 'power', startup: 8, active: 10, recovery: 16, chalk: true,
+      box: [-6, 34, -60, 0], hit: hit(3, { push: 2, hitstun: 12, effect: { blind: 90 } }) },
+    // si stringe la cintura da gara: meno danni e niente arretrare per 4 secondi
+    DDP: { name: 'Cintura stretta', kind: 'self', anim: 'power', startup: 12, recovery: 16, shout: 'CINTURA STRETTA!', buff: { reduce: 240, armor: 200 } },
+    super: { name: 'Tre luci bianche', kind: 'cine', shout: 'IN PEDANA!' },
+  },
 };
 
 export const METER_MAX = 100;

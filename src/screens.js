@@ -13,7 +13,7 @@ import { text, box, P1C, P2C, CPUC } from './ui.js';
 import { sfx, music } from './audio.js';
 
 const STAT_NAMES = [['vita', 'Vita'], ['forza', 'Forza'], ['velocita', 'Velocità'], ['salto', 'Salto']];
-const COLS = 4, TILE = 36; // griglia di selezione 4 x 3 (12 lottatori)
+const COLS = 5, TILE = 32; // griglia di selezione 5 x 3 (fino a 15 lottatori)
 
 export function createScenes() {
   const G = {
@@ -243,6 +243,7 @@ export function createScenes() {
         const i = G.mode === 3 ? G.net.mySide : G.mode === 2 ? 0 : (G.locked[0] ? 1 : 0);
         if (G.locked[i]) break;
         const k = r * COLS + c;
+        if (k >= ROSTER.length) break; // casella vuota
         if (G.sel[i] === k) tapOk = true; else { G.sel[i] = k; sfx.move(); }
         break;
       }
@@ -377,6 +378,19 @@ export function createScenes() {
     }
   }
 
+  // Spostamento nella griglia: si salta sulle caselle vuote dell'ultima riga.
+  function gridMove(sel, dx, dy) {
+    const n = ROSTER.length, rows = Math.ceil(n / COLS);
+    let c = sel % COLS, r = Math.floor(sel / COLS);
+    for (let k = 0; k < COLS * rows; k++) {
+      if (dx) c = (c + dx + COLS) % COLS;
+      if (dy) r = (r + dy + rows) % rows;
+      if (r * COLS + c < n) return r * COLS + c;
+      if (!dx && !dy) break;
+    }
+    return Math.min(sel, n - 1);
+  }
+
   // Online: ognuno sceglie il suo lottatore con i suoi comandi; l'host fa partire quando sono pronti tutti e due.
   function updateOnlineSelect() {
     const me = G.net.mySide;
@@ -385,9 +399,7 @@ export function createScenes() {
       const dx = (anyPressed('right') ? 1 : 0) - (anyPressed('left') ? 1 : 0);
       const dy = (anyPressed('down') ? 1 : 0) - (anyPressed('up') ? 1 : 0);
       if (dx || dy) {
-        let c = G.sel[me] % COLS, r = Math.floor(G.sel[me] / COLS);
-        c = (c + dx + COLS) % COLS; r = (r + dy + 3) % 3;
-        G.sel[me] = r * COLS + c; sfx.move();
+        G.sel[me] = gridMove(G.sel[me], dx, dy); sfx.move();
       }
       if (confirm()) { G.locked[me] = true; sfx.select(); }
       else if (G.t > 10 && anyPressed('back')) return leaveOnline();
@@ -406,9 +418,7 @@ export function createScenes() {
       const dx = (wasPressed(p, 'right') ? 1 : 0) - (wasPressed(p, 'left') ? 1 : 0);
       const dy = (wasPressed(p, 'down') ? 1 : 0) - (wasPressed(p, 'up') ? 1 : 0);
       if (!dx && !dy) return;
-      let c = G.sel[i] % COLS, r = Math.floor(G.sel[i] / COLS);
-      c = (c + dx + COLS) % COLS; r = (r + dy + 3) % 3;
-      G.sel[i] = r * COLS + c; sfx.move();
+      G.sel[i] = gridMove(G.sel[i], dx, dy); sfx.move();
     };
     if (G.mode === 2) {
       if (!G.locked[0] && !G.locked[1] && wasPressed(0, 'back')) { go('menu'); return; }
@@ -543,7 +553,8 @@ export function createScenes() {
     ROSTER.forEach((ch, i) => {
       const x = gx + (i % COLS) * TILE, y = gy + Math.floor(i / COLS) * TILE;
       box(ctx, x + 1, y + 1, TILE - 2, TILE - 2, '#2a1c3a', '#4a3a5a');
-      ctx.drawImage(ART[ch.id].portrait, x + 4, y + 4);
+      const pw = ART[ch.id].portrait.width;
+      ctx.drawImage(ART[ch.id].portrait, x + Math.round((TILE - pw) / 2), y + Math.round((TILE - pw) / 2));
     });
     const c2 = G.mode === 1 ? CPUC : P2C;
     const online = G.mode === 3, me = online ? G.net.mySide : 0;
@@ -560,9 +571,9 @@ export function createScenes() {
     cursor(0, P1C);
     if (showSecond) cursor(1, c2);
     const lab = i => online ? (i === me ? 'TU' : 'AMICO') : i === 0 ? 'G1' : G.mode === 1 ? 'CPU' : 'G2';
-    drawPreview(ctx, 0, 64, false, P1C, lab(0));
-    if (showSecond) drawPreview(ctx, 1, W - 64, true, c2, lab(1));
-    else { text(ctx, 'CPU', W - 64, 24, { size: 9, align: 'center', color: CPUC }); text(ctx, '?', W - 64, 110, { size: 40, align: 'center', color: '#3a2c4a', shadow: null }); }
+    drawPreview(ctx, 0, 58, false, P1C, lab(0));
+    if (showSecond) drawPreview(ctx, 1, W - 58, true, c2, lab(1));
+    else { text(ctx, 'CPU', W - 58, 24, { size: 9, align: 'center', color: CPUC }); text(ctx, '?', W - 58, 110, { size: 40, align: 'center', color: '#3a2c4a', shadow: null }); }
     const hint = online ? (G.locked[me] ? (G.locked[1 - me] ? 'Si parte!' : 'Aspetta che l\'amico scelga') : 'Scegli il tuo lottatore') : G.mode === 1 ? (G.locked[0] ? 'Ora scegli l\'avversario della CPU' : 'Scegli il tuo lottatore') : 'Ognuno sceglie con i suoi comandi';
     text(ctx, hint, W / 2, 168, { size: 7, align: 'center', color: '#d8c8e8', maxW: 148 });
     text(ctx, isTouch() ? 'Tocca due volte per confermare' : 'Pugno conferma · Calcio annulla', W / 2, 180, { size: 5, align: 'center', color: '#b8a8c8', maxW: 148 });

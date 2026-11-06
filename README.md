@@ -102,6 +102,7 @@ i comandi touch spariscono.
 | Piripinna | Schiacciata, Muro, Bagher, Senza peli sulla lingua | Sentenza dell'Aia |
 | Il Pavone | Piume, Ruota, Coltura batterica, Grande davi! | Selezione naturale |
 | Ilary Head | Nuvola di IQOS, Sei in lista!, In castigo!, Dopo-serata | Tutti in lista! |
+| Broddoris | Disco da 20, Walkout, Magnesite, Cintura stretta | Tre luci bianche |
 
 Ogni super è una piccola scena animata, con pose ed effetti propri.
 

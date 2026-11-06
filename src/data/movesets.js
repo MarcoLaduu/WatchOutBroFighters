@@ -55,6 +55,11 @@ export const MOVESETS = {
     specials: [['Nuvola di IQOS', '↓ → + P'], ['Sei in lista!', '← → + K'], ['In castigo!', '↓ ← + P'], ['Dopo-serata', '↓ ↓ + K']],
     super: 'Tutti in lista!',
   },
+  broddoris: {
+    passive: ['Sangue freddo', 'non resta mai stordito: le mosse che stordiscono gli fanno solo danno'],
+    specials: [['Disco da 20', '↓ → + P'], ['Walkout', '← → + P'], ['Magnesite', '↓ ← + K'], ['Cintura stretta', '↓ ↓ + P']],
+    super: 'Tre luci bianche',
+  },
 };
 
 // Mosse base, uguali per tutti e già attive.
