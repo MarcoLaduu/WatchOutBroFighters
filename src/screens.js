@@ -10,7 +10,7 @@ import { humanCtrl, cpuCtrl, LEVELS } from './game/controllers.js';
 import { Fight } from './game/fight.js';
 import { arenaCanvas } from './game/arena.js';
 import { text, box, P1C, P2C, CPUC } from './ui.js';
-import { sfx, music } from './audio.js';
+import { sfx, music, audioLocked, audioSettings, setMusicOn, setSfxOn } from './audio.js';
 import { acct, configured, loggedIn, myName, rpc, errText, refreshAccount } from './account.js';
 import { openAccount, closeAccount, accountOpen, syncInviteToast } from './account-ui.js';
 
@@ -19,7 +19,7 @@ const COLS = 5, TILE = 32; // griglia di selezione 5 x 3 (fino a 15 lottatori)
 
 export function createScenes() {
   const G = {
-    scene: 'title', t: 0, mode: 1, level: 1, menuIdx: 0, playIdx: 0,
+    scene: 'title', t: 0, mode: 1, level: 1, menuIdx: 0, playIdx: 0, setIdx: 0,
     sel: [0, 1], locked: [false, false], fight: null, pauseIdx: 0, endIdx: 0, movesSide: 0,
     // online (mode 3): sessione, voce del menu online, messaggio, codice da un link condiviso
     net: null, netPause: [false, false], onlineIdx: 0, netMsg: '', netEvents: [], autoJoin: null, rematch: [false, false], copied: 0,
@@ -242,11 +242,18 @@ export function createScenes() {
     'Online',
     'Classifica',
     `Account e amici${acct.requests ? ` (${acct.requests})` : ''}`,
-    'Comandi',
+    'Impostazioni',
   ];
   const M_PLAY = 0, M_ONLINE = 1, M_BOARD = 2, M_ACCOUNT = 3, M_N = 5, M_Y = 84, M_STEP = 18;
   const PLAY_MENU = () => ['Contro la CPU', '2 giocatori', `Difficoltà CPU: ${LEVELS[G.level].name}`, 'Indietro'];
   const P_LEVEL = 2, P_N = 4;
+  const onOff = v => v ? 'Sì' : 'No';
+  const SET_MENU = () => [`Musica: ${onOff(audioSettings.music)}`, `Effetti sonori: ${onOff(audioSettings.sfx)}`, 'Comandi', 'Indietro'];
+  const S_N = 4;
+  function toggleSetting(i) {
+    if (i === 0) setMusicOn(!audioSettings.music);
+    else if (i === 1) { setSfxOn(!audioSettings.sfx); sfx.select(); }
+  }
 
   // ---------- account, ranked e inviti ----------
   function showAccount() {
@@ -407,7 +414,7 @@ export function createScenes() {
   }
   const declineInvite = inv => rpc('invite_respond', { p_id: inv.id, p_accept: false }).catch(() => {});
   // l'avviso delle sfide si vede solo quando non si sta giocando
-  const IDLE = ['title', 'menu', 'play', 'controls', 'online', 'netmsg', 'account', 'board'];
+  const IDLE = ['title', 'menu', 'play', 'settings', 'controls', 'online', 'netmsg', 'account', 'board'];
 
   // A fine partita ognuno dei due dice al server chi ha vinto; quando coincidono arrivano le coppe.
   function reportRanked(champ) {
@@ -454,6 +461,7 @@ export function createScenes() {
       case 'end': { const i = tapItem(tap, END_ITEMS().length, 100); if (i >= 0) { G.endIdx = i; tapOk = true; } break; }
       case 'online': { const i = tapItem(tap, O_N, 88); if (i >= 0) { G.onlineIdx = i; tapOk = true; } break; }
       case 'play': { const i = tapItem(tap, P_N, 88); if (i >= 0) { G.playIdx = i; tapOk = true; } break; }
+      case 'settings': { const i = tapItem(tap, S_N, 88); if (i >= 0) { G.setIdx = i; tapOk = true; } break; }
       case 'netwait': if (tap.y > 60 && tap.y < 130) tapOk = true; break;
       case 'netmsg': tapOk = true; break;
       case 'rankq': case 'invwait': if (tap.y > 160) tapOk = true; break;
@@ -504,14 +512,24 @@ export function createScenes() {
           else if (G.menuIdx === M_ONLINE) { G.onlineIdx = 0; go('online'); }
           else if (G.menuIdx === M_BOARD) showBoard();
           else if (G.menuIdx === M_ACCOUNT) showAccount();
-          else go('controls');
+          else { G.setIdx = 0; go('settings'); }
         }
         if (cancel()) go('title');
         break;
       }
       case 'controls':
-        if (confirm() || cancel()) go('menu');
+        if (confirm() || cancel()) go('settings');
         break;
+      case 'settings': {
+        const v = vertical();
+        if (v) { G.setIdx = (G.setIdx + v + S_N) % S_N; sfx.move(); }
+        if (G.setIdx < 2 && horizontal()) toggleSetting(G.setIdx);
+        if (confirm()) {
+          if (G.setIdx < 2) toggleSetting(G.setIdx);
+          else { sfx.select(); go(G.setIdx === 2 ? 'controls' : 'menu'); }
+        } else if (cancel()) go('menu');
+        break;
+      }
       case 'play': {
         const v = vertical();
         if (v) { G.playIdx = (G.playIdx + v + P_N) % P_N; sfx.move(); }
@@ -708,6 +726,8 @@ export function createScenes() {
       ctx.drawImage(img, Math.round(4 + i * step), 128 + (i % 2 ? 4 : 0));
     });
     if (Math.floor(G.t / 30) % 2) text(ctx, isTouch() ? 'Tocca lo schermo' : 'Premi Invio o Pugno', W / 2, 112, { size: 9, align: 'center' });
+    // il browser non ha ancora dato il permesso di suonare: basta un tocco o un tasto qualsiasi
+    if (audioLocked() && audioSettings.music) text(ctx, '♪ Tocca o premi un tasto per la musica', W - 6, H - 6, { size: 5, align: 'right', color: '#b8a8c8' });
   }
 
   function drawMenuList(ctx, items, idx, y0, step = 18) {
@@ -727,7 +747,7 @@ export function createScenes() {
     if (acct.profile && acct.profile.username) {
       text(ctx, `${acct.profile.username}  ·  ${acct.profile.trophies} coppe`, W - 8, 12, { size: 6, align: 'right', color: '#f2c230' });
     } else if (configured()) text(ctx, 'Accedi da "Account e amici"', W - 8, 12, { size: 5, align: 'right', color: '#b8a8c8' });
-    const hint = ['Contro la CPU o in due sullo stesso dispositivo', 'Ranked e partite con un amico', 'Le coppe di tutti i lottatori', 'Accesso, nome e amici', 'Tasti di tastiera e controller'][G.menuIdx];
+    const hint = ['Contro la CPU o in due sullo stesso dispositivo', 'Ranked e partite con un amico', 'Le coppe di tutti i lottatori', 'Accesso, nome e amici', 'Musica, effetti sonori e comandi'][G.menuIdx];
     if (hint) text(ctx, hint, W / 2, 182, { size: 6, align: 'center', color: '#b8a8c8' });
     text(ctx, isTouch() ? 'Tocca una voce per sceglierla' : 'Su/Giù per scegliere · Pugno o Invio per confermare', W / 2, 204, { size: 6, align: 'center', color: '#b8a8c8' });
   }
@@ -932,6 +952,14 @@ export function createScenes() {
     if (G.onlineIdx === 0 && needAccount()) text(ctx, 'Serve l\'account: si apre il pannello per accedere', W / 2, 180, { size: 5, align: 'center', color: '#f2c230' });
     text(ctx, 'Per sfidare un amico preciso: Account e amici → Sfida', W / 2, 200, { size: 5, align: 'center', color: '#8a7a9a' });
   }
+  function drawSettings(ctx) {
+    onlineBg(ctx, 'IMPOSTAZIONI');
+    drawMenuList(ctx, SET_MENU(), G.setIdx, 88);
+    const hint = ['La musica del menu e dei combattimenti', 'Colpi, parate, KO e suoni dei menu', 'Tasti di tastiera e controller', ''][G.setIdx];
+    if (hint) text(ctx, hint, W / 2, 168, { size: 6, align: 'center', color: '#b8a8c8' });
+    if (G.setIdx < 2 && !isTouch()) text(ctx, '◀ ▶ o Pugno per cambiare', W / 2, 182, { size: 5, align: 'center', color: '#b8a8c8' });
+    text(ctx, isTouch() ? 'Tocca una voce per cambiarla' : 'Su/Giù per scegliere · Calcio o Esc per tornare', W / 2, 200, { size: 5, align: 'center', color: '#b8a8c8' });
+  }
   function drawPlay(ctx) {
     onlineBg(ctx, 'GIOCA');
     drawMenuList(ctx, PLAY_MENU(), G.playIdx, 88);
@@ -1039,6 +1067,7 @@ export function createScenes() {
       case 'netconnect': return drawNetMsg(ctx, 'COLLEGAMENTO', [`Mi collego alla stanza BRO-${G.joinCode}...`], 'Calcio per annullare');
       case 'netmsg': return drawNetMsg(ctx, 'ONLINE', [G.netMsg], 'Premi un tasto per continuare');
       case 'play': return drawPlay(ctx);
+      case 'settings': return drawSettings(ctx);
       case 'rankq': return drawRankQueue(ctx);
       case 'invwait': return drawInviteWait(ctx);
       case 'account': return onlineBg(ctx, 'ACCOUNT');

@@ -60,7 +60,10 @@ nei menu i tasti mostrati cambiano da soli tra tastiera, controller Xbox e PlayS
 
 Il menu principale ha cinque voci: **Gioca** (contro la CPU, in due sullo stesso dispositivo, difficoltà
 della CPU), **Online** (Ranked, Crea una stanza, Entra con un codice), **Classifica**, **Account e amici** e
-**Comandi**.
+**Impostazioni** (musica sì/no, effetti sonori sì/no, Comandi; le scelte restano salvate nel browser).
+
+La musica del menu parte appena il browser lo permette: alcuni browser la lasciano suonare subito,
+gli altri aspettano il primo tocco, clic o tasto in qualsiasi punto della pagina.
 
 Menu principale → **Online** → **Crea una stanza** / **Entra con un codice**:
 

@@ -1,15 +1,39 @@
 // Effetti sonori sintetizzati con Web Audio e musiche di sottofondo (public/music).
 let ac = null;
 
+// Impostazioni audio (salvate nel browser): musica ed effetti si accendono e spengono separatamente.
+const SET_KEY = 'wobf-audio';
+export const audioSettings = { music: true, sfx: true };
+try { Object.assign(audioSettings, JSON.parse(localStorage.getItem(SET_KEY) || '{}')); } catch { /* ok */ }
+const saveSettings = () => { try { localStorage.setItem(SET_KEY, JSON.stringify(audioSettings)); } catch { /* ok */ } };
+export function setSfxOn(on) { audioSettings.sfx = !!on; saveSettings(); }
+export function setMusicOn(on) { audioSettings.music = !!on; saveSettings(); applyMusicVol(); }
+
 export function unlockAudio() {
   if (!ac) {
     try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
   }
-  if (ac.state === 'suspended') ac.resume();
+  if (ac.state === 'suspended') ac.resume().catch(() => {});
+}
+// true finché il browser non lascia suonare (serve un primo tocco, clic o tasto)
+export const audioLocked = () => !ac || ac.state !== 'running';
+
+// All'apertura del sito: si prepara l'audio e si scaricano subito le musiche, così il brano del menu
+// parte appena il browser lo permette (subito, se il sito è già "di casa" per il browser, altrimenti
+// al primo tocco, clic o tasto in qualsiasi punto della pagina).
+export function initAudio() {
+  unlockAudio();
+  if (!ac) return;
+  ensureMaster();
+  Object.keys(TRACKS).forEach(load);
+  const go = () => unlockAudio();
+  for (const ev of ['pointerdown', 'touchstart', 'touchend', 'mousedown', 'click', 'keydown']) {
+    addEventListener(ev, go, { capture: true, passive: true });
+  }
 }
 
 function tone(freq, dur, type = 'square', vol = 0.12, slide = 0) {
-  if (!ac) return;
+  if (!ac || !audioSettings.sfx) return;
   const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
   o.type = type;
   o.frequency.setValueAtTime(freq, t);
@@ -21,7 +45,7 @@ function tone(freq, dur, type = 'square', vol = 0.12, slide = 0) {
 }
 
 function noise(dur, vol = 0.15) {
-  if (!ac) return;
+  if (!ac || !audioSettings.sfx) return;
   const len = Math.floor(ac.sampleRate * dur), buf = ac.createBuffer(1, len, ac.sampleRate), d = buf.getChannelData(0);
   for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
   const s = ac.createBufferSource(), g = ac.createGain();
@@ -63,7 +87,7 @@ function load(name) {
   loading[name] = fetch(`music/${TRACKS[name].file}.${ext()}`)
     .then(r => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
     .then(b => new Promise((res, rej) => ac.decodeAudioData(b, res, rej)))
-    .then(buf => { buffers[name] = buf; if (wanted === name && (!current || current.name !== name)) start(name); })
+    .then(buf => { buffers[name] = buf; if (wanted === name && ac.state === 'running' && (!current || current.name !== name)) start(name); })
     .catch(() => { loading[name] = null; });
 }
 
@@ -85,15 +109,22 @@ function start(name) {
   current = { name, src, gain };
 }
 
+const musicVol = () => audioSettings.music ? MUSIC_VOL * (ducked ? 0.35 : 1) : 0;
+function ensureMaster() {
+  if (master) return;
+  master = ac.createGain(); master.gain.value = musicVol(); master.connect(ac.destination);
+}
+// la musica spenta continua a girare in silenzio: riaccendendola riprende senza ricominciare
+function applyMusicVol() {
+  if (master) master.gain.setTargetAtTime(musicVol(), ac.currentTime, 0.12);
+}
+
 export const music = {
   // Da chiamare a ogni fotogramma con il brano che deve suonare: cambia solo quando serve.
   play(name) {
     wanted = name;
     if (!ac || ac.state !== 'running') return;
-    if (!master) {
-      master = ac.createGain(); master.gain.value = MUSIC_VOL; master.connect(ac.destination);
-      Object.keys(TRACKS).forEach(load);
-    }
+    if (!master) { ensureMaster(); Object.keys(TRACKS).forEach(load); }
     if (current && current.name === name) return;
     if (buffers[name]) start(name); else load(name);
   },
@@ -101,6 +132,6 @@ export const music = {
   duck(on) {
     if (!master || on === ducked) return;
     ducked = on;
-    master.gain.setTargetAtTime(MUSIC_VOL * (on ? 0.35 : 1), ac.currentTime, 0.15);
+    applyMusicVol();
   },
 };

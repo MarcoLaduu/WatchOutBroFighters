@@ -10,6 +10,7 @@ import { buildFrames, FW, FH } from './anim/frames.js';
 import { arenaCanvas } from './game/arena.js';
 import { createScenes } from './screens.js';
 import { initAccount } from './account.js';
+import { initAudio } from './audio.js';
 import { FightView } from './game/view.js';
 
 let FRAMES = null;
@@ -76,6 +77,8 @@ class GameScene extends Phaser.Scene {
 
 // prima di tutto: al ritorno dal login con Google l'indirizzo contiene il gettone d'accesso
 initAccount();
+// musica del menu pronta subito (parte appena il browser lo permette)
+initAudio();
 initTouch();
 
 new Phaser.Game({
