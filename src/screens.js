@@ -11,6 +11,8 @@ import { Fight } from './game/fight.js';
 import { arenaCanvas } from './game/arena.js';
 import { text, box, P1C, P2C, CPUC } from './ui.js';
 import { sfx, music } from './audio.js';
+import { acct, configured, loggedIn, myName, rpc, errText, refreshAccount } from './account.js';
+import { openAccount, closeAccount, accountOpen, syncInviteToast } from './account-ui.js';
 
 const STAT_NAMES = [['vita', 'Vita'], ['forza', 'Forza'], ['velocita', 'Velocità'], ['salto', 'Salto']];
 const COLS = 5, TILE = 32; // griglia di selezione 5 x 3 (fino a 15 lottatori)
@@ -21,6 +23,8 @@ export function createScenes() {
     sel: [0, 1], locked: [false, false], fight: null, pauseIdx: 0, endIdx: 0, movesSide: 0,
     // online (mode 3): sessione, voce del menu online, messaggio, codice da un link condiviso
     net: null, netPause: [false, false], onlineIdx: 0, netMsg: '', netEvents: [], autoJoin: null, rematch: [false, false], copied: 0,
+    // ranked (con account): { matchId, opp, reported, res } durante una partita che vale coppe
+    ranked: null, rq: null, inv: null, msgBack: 'online', starting: false,
   };
   // aperto da un link condiviso (…#BRO-K7PQ): si entra direttamente nella stanza dell'amico
   {
@@ -37,7 +41,8 @@ export function createScenes() {
       // online: i tasti di entrambi arrivano dal lockstep (G.netIn), stesso seme sui due dispositivi
       const netCtrl = side => ({ read: () => G.netIn[side] });
       const me = G.net.mySide;
-      G.fight = new Fight(c1, c2, netCtrl(0), netCtrl(1), me === 0 ? ['TU', 'AMICO'] : ['AMICO', 'TU'], { rng: makeRng(G.seed) });
+      const mine = G.ranked ? (myName() || 'TU').toUpperCase() : 'TU', theirs = G.ranked ? (G.ranked.opp || 'AVVERSARIO').toUpperCase() : 'AMICO';
+      G.fight = new Fight(c1, c2, netCtrl(0), netCtrl(1), me === 0 ? [mine, theirs] : [theirs, mine], { rng: makeRng(G.seed) });
       G.netHashes = new Map(); G.desync = false; G.netPause = [false, false]; G.netIn = [unpackInput(0), unpackInput(0)];
       G.rematch = [false, false];
       go('fight');
@@ -61,13 +66,27 @@ export function createScenes() {
     G.net = n; G.netEvents = [];
     return n;
   }
-  function leaveOnline(msg) {
+  // why: undefined = esco io, 'opp' = è uscito / si è scollegato l'altro, 'desync' = partita da buttare
+  function leaveOnline(msg, why) {
+    const R = G.ranked;
+    if (R) {
+      // ranked già iniziata (collegati) e senza risultato: chi esce perde, chi resta vince
+      if (G.mode === 3 && G.net && R.matchId && !R.reported && why !== 'desync') {
+        const me = G.net.mySide;
+        rpc('match_report', { p_id: R.matchId, p_winner: why === 'opp' ? me : 1 - me }).then(refreshAccount).catch(() => {});
+        if (why === 'opp') msg = `${msg || 'L\'avversario è uscito'}: vittoria a tavolino, +30 coppe`;
+      }
+      if (G.rq && !R.matchId) rpc('queue_leave').catch(() => {});
+      if (G.inv && G.inv.id && G.mode !== 3) rpc('invite_cancel').catch(() => {});
+    }
     if (G.net) { G.net.send({ t: 'quit' }); const n = G.net; setTimeout(() => n.close(), 200); }
-    G.net = null; G.mode = 1; G.netPause = [false, false]; hideCodeInput();
+    G.msgBack = R ? 'menu' : 'online';
+    G.net = null; G.mode = 1; G.netPause = [false, false]; G.ranked = null; G.rq = null; G.inv = null; G.starting = false; hideCodeInput();
     if (msg) { G.netMsg = msg; go('netmsg'); } else go('menu');
   }
   function startHost() { newSession().host_(); go('netwait'); }
-  function startJoin(code) {
+  function startJoin(code, ranked) {
+    if (!ranked) G.ranked = null;
     code = cleanCode(code);
     if (code.length !== 4) { G.netMsg = 'Il codice è di 4 caratteri'; return; }
     hideCodeInput();
@@ -76,10 +95,26 @@ export function createScenes() {
   // quando i due sono collegati: tutti e due alla scelta dei lottatori
   function onConnected() {
     G.mode = 3; G.locked = [false, false]; G.sel = [0, 1]; G.rematch = [false, false];
+    // ranked: ci si presenta (nome e partita), così anche chi ha la stanza sa contro chi gioca
+    if (G.ranked) G.net.send({ t: 'who', name: myName(), match: G.ranked.matchId });
     go('select');
   }
   // Il G1 (host) decide quando si parte e con quale seme.
+  // Ranked: dopo una partita già conclusa, la successiva (rivincita) è una nuova partita sul server.
   function hostStart() {
+    const R = G.ranked;
+    if (!R || !R.reported) return hostStart0();
+    if (G.starting) return;
+    G.starting = true;
+    rpc('match_again', { p_old: R.matchId }).then(id => {
+      G.starting = false;
+      if (G.ranked !== R || !G.net) return;
+      R.matchId = id; R.reported = false; R.res = null;
+      G.net.send({ t: 'rmatch', id });
+      hostStart0();
+    }).catch(e => { G.starting = false; if (G.ranked === R) leaveOnline(errText(e)); });
+  }
+  function hostStart0() {
     if (!G.net.host) return;
     const seed = (Math.random() * 2 ** 32) >>> 0;
     // ritardo dei tasti scelto in base al ping misurato finora (uguale per tutti e due)
@@ -105,8 +140,12 @@ export function createScenes() {
     while (G.netEvents.length) {
       const m = G.netEvents.shift();
       switch (m.t) {
-        case 'closed': return leaveOnline(m.why);
-        case 'quit': return leaveOnline('L\'avversario è uscito dalla partita');
+        case 'closed': return leaveOnline(m.why, 'opp');
+        case 'quit': return leaveOnline('L\'avversario è uscito dalla partita', 'opp');
+        case 'who':
+          if (G.ranked) { G.ranked.opp = m.name || G.ranked.opp; if (!G.ranked.matchId && m.match) G.ranked.matchId = m.match; }
+          break;
+        case 'rmatch': if (G.ranked) { G.ranked.matchId = m.id; G.ranked.reported = false; G.ranked.res = null; } break;
         case 'hello': break;
         case 'pause': G.netPause[1 - n.mySide] = !!m.on; if (m.on) sfx.move(); break;
         case 'sel': {
@@ -199,19 +238,200 @@ export function createScenes() {
   const MENU = () => [
     '1 giocatore contro la CPU',
     '2 giocatori',
-    'Online con un amico',
+    'Ranked',
+    'Classifica',
+    'Online con un amico (codice)',
+    `Account e amici${acct.requests ? ` (${acct.requests})` : ''}`,
     `Difficoltà CPU: ${LEVELS[G.level].name}`,
     'Comandi',
   ];
+  const M_RANKED = 2, M_BOARD = 3, M_ONLINE = 4, M_ACCOUNT = 5, M_LEVEL = 6, M_N = 8, M_Y = 64, M_STEP = 16;
+
+  // ---------- account, ranked e inviti ----------
+  function showAccount() {
+    if (accountOpen()) return;
+    openAccount({ onChallenge: startInvite });
+    go('account');
+  }
+  // ---------- classifica ----------
+  const BOARD_ROWS = 9;
+  function loadBoard() {
+    const b = G.board;
+    if (!b || b.busy) return;
+    b.busy = true; b.at = G.t;
+    rpc('leaderboard', {}, true).then(rows => {
+      b.busy = false; b.rows = rows || []; b.err = '';
+      if (!b.placed) {
+        // la prima volta si scorre fino alla propria riga
+        b.placed = true;
+        const me = b.rows.findIndex(r => r.username === myName());
+        if (me >= BOARD_ROWS) b.scroll = Math.min(me - Math.floor(BOARD_ROWS / 2), b.rows.length - BOARD_ROWS);
+      }
+    }).catch(e => { b.busy = false; b.err = errText(e); });
+  }
+  function showBoard() {
+    G.board = { rows: null, err: configured() ? '' : errText('not_configured'), scroll: 0, busy: false, at: 0, placed: false };
+    if (configured()) loadBoard();
+    go('board');
+  }
+  function scrollBoard(d) {
+    const b = G.board;
+    if (!b || !b.rows) return;
+    const max = Math.max(0, b.rows.length - BOARD_ROWS);
+    const ns = Math.max(0, Math.min(max, b.scroll + d));
+    if (ns !== b.scroll) { b.scroll = ns; sfx.move(); }
+  }
+  function drawBoard(ctx) {
+    onlineBg(ctx, 'CLASSIFICA');
+    const b = G.board || {};
+    const dim = '#b8a8c8', x = { pos: 64, dot: 74, name: 82, cup: 262, w: 296, l: 326 };
+    if (b.err) text(ctx, b.err, W / 2, 104, { size: 7, align: 'center', color: '#ff7a6a', maxW: 340 });
+    else if (!b.rows) text(ctx, 'Carico la classifica' + '.'.repeat(1 + Math.floor(G.t / 20) % 3), W / 2, 104, { size: 8, align: 'center' });
+    else if (!b.rows.length) text(ctx, 'Ancora nessun lottatore in classifica', W / 2, 104, { size: 7, align: 'center' });
+    else {
+      text(ctx, '#', x.pos, 62, { size: 5, align: 'right', color: dim });
+      text(ctx, 'Lottatore', x.name, 62, { size: 5, color: dim });
+      text(ctx, 'Coppe', x.cup, 62, { size: 5, align: 'right', color: dim });
+      text(ctx, 'V', x.w, 62, { size: 5, align: 'right', color: dim });
+      text(ctx, 'S', x.l, 62, { size: 5, align: 'right', color: dim });
+      const me = myName();
+      for (let k = 0; k < BOARD_ROWS; k++) {
+        const i = b.scroll + k, r = b.rows[i];
+        if (!r) break;
+        const y = 76 + k * 12, mine = r.username === me;
+        const col = mine ? '#f2c230' : i === 0 ? '#ffe28a' : i < 3 ? '#e8d8b0' : '#e6d8f0';
+        if (mine) box(ctx, 54, y - 9, 280, 12, 'rgba(242,194,48,0.15)', '#f2c230');
+        text(ctx, `${i + 1}`, x.pos, y, { size: 6, align: 'right', color: col });
+        ctx.fillStyle = r.online ? '#5ae85a' : '#4a3c5a'; ctx.fillRect(x.dot, y - 5, 3, 3);
+        text(ctx, r.username, x.name, y, { size: 6, color: col, maxW: 150 });
+        text(ctx, `${r.trophies}`, x.cup, y, { size: 6, align: 'right', color: col });
+        text(ctx, `${r.wins}`, x.w, y, { size: 6, align: 'right', color: col });
+        text(ctx, `${r.losses}`, x.l, y, { size: 6, align: 'right', color: col });
+      }
+      // freccette se c'è altro sopra o sotto
+      if (b.scroll > 0) text(ctx, '▲', 344, 76, { size: 6, color: dim });
+      if (b.scroll + BOARD_ROWS < b.rows.length) text(ctx, '▼', 344, 76 + (BOARD_ROWS - 1) * 12, { size: 6, color: dim });
+      const pos = b.rows.findIndex(r => r.username === me);
+      const foot = pos >= 0 ? `Sei ${pos + 1}° su ${b.rows.length} lottatori` : (loggedIn() ? `${b.rows.length} lottatori in classifica` : 'Accedi da "Account e amici" per entrare in classifica');
+      text(ctx, foot, W / 2, 190, { size: 6, align: 'center', color: pos >= 0 ? '#f2c230' : '#d8c8e8', maxW: 340 });
+    }
+    text(ctx, isTouch() ? 'Tocca in alto/in basso per scorrere · qui sotto per tornare' : 'Su/Giù per scorrere · Pugno o Calcio per tornare', W / 2, 204, { size: 5, align: 'center', color: '#b8a8c8' });
+  }
+
+  const needAccount = () => !configured() || !loggedIn() || !acct.profile || !acct.profile.username;
+
+  function startRanked() {
+    if (needAccount()) return showAccount();
+    G.ranked = { matchId: null, opp: '', reported: false, res: null };
+    G.rq = { st: 'host', busy: false, at: 0 };
+    newSession().host_();
+    go('rankq');
+  }
+  // Coda: si crea la propria stanza e ci si mette in coda con il suo codice. Se c'è già qualcuno
+  // in coda si entra nella sua stanza; altrimenti si aspetta che entri qualcuno nella nostra.
+  function updateRankQueue() {
+    const n = G.net, q = G.rq, R = G.ranked;
+    if (!n || !q || !R) return go('menu');
+    if (n.status === 'connected') { sfx.select(); return onConnected(); }
+    if (G.t > 10 && cancel()) return leaveOnline();
+    if (q.busy) return;
+    const call = (name, args, then) => {
+      q.busy = true;
+      rpc(name, args).then(r => { q.busy = false; if (G.rq === q) then(r || {}); })
+        .catch(e => { q.busy = false; if (G.rq === q) leaveOnline(errText(e)); });
+    };
+    if (q.st === 'host' && n.status === 'waiting' && n.code) {
+      q.st = 'joining';
+      call('queue_join', { p_code: n.code }, r => {
+        if (r.match) {
+          // c'era già qualcuno: si va nella sua stanza
+          R.matchId = r.match; R.opp = r.opp || ''; q.st = 'guest';
+          G.joinCode = r.code; newSession().join(r.code);
+        } else { q.st = 'queued'; q.at = G.t; }
+      });
+    } else if (q.st === 'queued' && G.t - q.at > 120) {
+      q.at = G.t;
+      call('queue_poll', {}, r => {
+        if (r.match) { R.matchId = r.match; R.opp = r.opp || ''; q.st = 'matched'; q.at = G.t; }
+        else if (r.gone) q.st = 'host';   // tolti dalla coda (rete lenta): ci si rimette
+      });
+    } else if (q.st === 'matched' && G.t - q.at > 1200) {
+      // l'avversario trovato non è mai entrato nella stanza: si torna in coda
+      R.matchId = null; R.opp = ''; q.st = 'host';
+    }
+  }
+
+  // Sfida a un amico: si crea la stanza e gli si manda l'invito con il suo codice.
+  function startInvite(friend) {
+    if (needAccount()) return showAccount();
+    if (G.net) leaveOnline();
+    G.ranked = { matchId: null, opp: friend.username, reported: false, res: null };
+    G.inv = { st: 'host', friend, id: null, busy: false, at: 0, msg: '' };
+    newSession().host_();
+    go('invwait');
+  }
+  function updateInviteWait() {
+    const n = G.net, v = G.inv, R = G.ranked;
+    if (!n || !v || !R) return go('menu');
+    if (n.status === 'connected') { sfx.select(); return onConnected(); }
+    if (G.t > 10 && cancel()) return leaveOnline();
+    if (v.busy) return;
+    const call = (name, args, then) => {
+      v.busy = true;
+      rpc(name, args).then(r => { v.busy = false; if (G.inv === v) then(r || {}); })
+        .catch(e => { v.busy = false; if (G.inv === v) leaveOnline(errText(e)); });
+    };
+    if (v.st === 'host' && n.status === 'waiting' && n.code) {
+      v.st = 'sending';
+      call('invite_send', { p_to: v.friend.id, p_code: n.code }, id => { v.id = id; v.st = 'sent'; v.at = G.t; });
+    } else if (v.st === 'sent' && G.t - v.at > 120) {
+      v.at = G.t;
+      call('invite_status', { p_id: v.id }, r => {
+        if (r.match) R.matchId = r.match;
+        if (r.status === 'declined') leaveOnline(`${v.friend.username} ha rifiutato la sfida`);
+        else if (r.status === 'expired' || r.status === 'cancelled') leaveOnline(`${v.friend.username} non ha risposto`);
+      });
+    }
+  }
+  // sfida ricevuta e accettata dall'avviso
+  function acceptInvite(inv) {
+    if (G.net) return;
+    closeAccount();
+    rpc('invite_respond', { p_id: inv.id, p_accept: true }).then(r => {
+      if (!r || r.error) { G.netMsg = 'La sfida è scaduta'; G.msgBack = 'menu'; go('netmsg'); return; }
+      if (G.net) return;
+      G.ranked = { matchId: r.match, opp: r.opp || inv.from, reported: false, res: null };
+      startJoin(r.code, true);
+    }).catch(e => { G.netMsg = errText(e); G.msgBack = 'menu'; go('netmsg'); });
+  }
+  const declineInvite = inv => rpc('invite_respond', { p_id: inv.id, p_accept: false }).catch(() => {});
+  // l'avviso delle sfide si vede solo quando non si sta giocando
+  const IDLE = ['title', 'menu', 'controls', 'online', 'netmsg', 'account', 'board'];
+
+  // A fine partita ognuno dei due dice al server chi ha vinto; quando coincidono arrivano le coppe.
+  function reportRanked(champ) {
+    const R = G.ranked;
+    if (!R || R.reported || !R.matchId) return;
+    R.reported = true;
+    const won = champ === G.net.mySide;
+    const res = R.res = { won, status: 'wait', trophies: null, tries: 0 };
+    const check = r => {
+      if (R.res !== res || !r) return;
+      res.status = r.status; res.trophies = r.trophies;
+      if (r.status === 'open' && res.tries++ < 15) setTimeout(() => { if (R.res === res) rpc('match_info', { p_id: R.matchId }).then(check).catch(() => {}); }, 2000);
+      else refreshAccount();
+    };
+    rpc('match_report', { p_id: R.matchId, p_winner: champ }).then(check).catch(() => { res.status = 'error'; });
+  }
 
   // Tocco sul telefono: un tocco su una voce la sceglie e la conferma (vedi handleTap).
   let tapOk = false;
   const confirm = p => pressConfirm(p) || (tapOk && (p == null || p === 0));
   // indice della voce di un elenco di drawMenuList toccata, o -1
-  const tapItem = (tap, n, y0) => {
+  const tapItem = (tap, n, y0, step = 18) => {
     for (let i = 0; i < n; i++) {
-      const y = y0 + i * 18 - 11;
-      if (tap.x >= W / 2 - 100 && tap.x <= W / 2 + 100 && tap.y >= y - 2 && tap.y <= y + 17) return i;
+      const y = y0 + i * step - 11;
+      if (tap.x >= W / 2 - 100 && tap.x <= W / 2 + 100 && tap.y >= y - 1 && tap.y <= y + step - 2) return i;
     }
     return -1;
   };
@@ -220,8 +440,12 @@ export function createScenes() {
     if (!tap) return;
     switch (G.scene) {
       case 'title': case 'controls': case 'vs': tapOk = true; break;
+      case 'board':
+        if (tap.y >= 182) tapOk = true;
+        else scrollBoard(tap.y < 120 ? -3 : 3);
+        break;
       case 'menu': {
-        const i = tapItem(tap, 5, 78);
+        const i = tapItem(tap, M_N, M_Y, M_STEP);
         if (i >= 0) { G.menuIdx = i; tapOk = true; } // sulla difficoltà: la cambia
         break;
       }
@@ -230,6 +454,7 @@ export function createScenes() {
       case 'online': { const i = tapItem(tap, 3, 92); if (i >= 0) { G.onlineIdx = i; tapOk = true; } break; }
       case 'netwait': if (tap.y > 60 && tap.y < 130) tapOk = true; break;
       case 'netmsg': tapOk = true; break;
+      case 'rankq': case 'invwait': if (tap.y > 160) tapOk = true; break;
       case 'fight': if (G.fight && G.fight.phase === 'match') tapOk = true; break;
       case 'moves':
         if (tap.y < 34 && tap.x > W / 2) { G.movesSide = 1 - G.movesSide; sfx.move(); }
@@ -255,6 +480,11 @@ export function createScenes() {
     handleTap(takeTap());
     if (G.net) { G.net.keepAlive(); handleNetEvents(); }
     if (G.autoJoin && G.scene === 'title') { const c = G.autoJoin; G.autoJoin = null; startJoin(c); }
+    // appena tornati dall'accesso con Google: si apre il pannello dell'account
+    if (acct.justLogged && G.scene === 'title') { acct.justLogged = false; G.askedName = true; go('menu'); showAccount(); }
+    // account senza nome (primo accesso): si chiede subito il nome con cui comparire online
+    if (!G.askedName && G.scene === 'menu' && acct.profile && !acct.profile.username && !accountOpen()) { G.askedName = true; showAccount(); }
+    syncInviteToast(!G.net && IDLE.includes(G.scene), acceptInvite, declineInvite);
     // musica: quella del menu fuori dal combattimento, quella del combattimento in partita (più bassa in pausa)
     const inFight = ['fight', 'pause', 'moves'].includes(G.scene);
     music.play(inFight ? 'fight' : 'main');
@@ -265,16 +495,19 @@ export function createScenes() {
         break;
       case 'menu': {
         const v = vertical();
-        if (v) { G.menuIdx = (G.menuIdx + v + 5) % 5; sfx.move(); }
+        if (v) { G.menuIdx = (G.menuIdx + v + M_N) % M_N; sfx.move(); }
         const h = horizontal();
-        if (G.menuIdx === 3 && h) { G.level = (G.level + h + 3) % 3; sfx.move(); }
+        if (G.menuIdx === M_LEVEL && h) { G.level = (G.level + h + 3) % 3; sfx.move(); }
         if (confirm()) {
           sfx.select();
           if (G.menuIdx === 0 || G.menuIdx === 1) {
             G.mode = G.menuIdx === 0 ? 1 : 2; G.locked = [false, false];
             go('select');
-          } else if (G.menuIdx === 2) { G.onlineIdx = 0; go('online'); }
-          else if (G.menuIdx === 3) G.level = (G.level + 1) % 3;
+          } else if (G.menuIdx === M_RANKED) startRanked();
+          else if (G.menuIdx === M_BOARD) showBoard();
+          else if (G.menuIdx === M_ONLINE) { G.onlineIdx = 0; go('online'); }
+          else if (G.menuIdx === M_ACCOUNT) showAccount();
+          else if (G.menuIdx === M_LEVEL) G.level = (G.level + 1) % 3;
           else go('controls');
         }
         if (cancel()) go('title');
@@ -308,8 +541,21 @@ export function createScenes() {
         if (G.t > 10 && cancel()) leaveOnline();
         break;
       case 'netmsg':
-        if (G.t > 20 && (confirm() || cancel())) go('online');
+        if (G.t > 20 && (confirm() || cancel())) go(G.msgBack || 'online');
         break;
+      case 'account':
+        if (G.t > 10 && cancel()) closeAccount();
+        if (!accountOpen()) go('menu');
+        break;
+      case 'rankq': updateRankQueue(); break;
+      case 'board': {
+        const v = vertical();
+        if (v) scrollBoard(v);
+        if (G.board && !G.board.busy && configured() && G.t - G.board.at > 600) loadBoard(); // si aggiorna ogni 10 secondi
+        if (G.t > 10 && (confirm() || cancel())) { sfx.select(); go('menu'); }
+        break;
+      }
+      case 'invwait': updateInviteWait(); break;
       case 'select':
         updateSelect();
         break;
@@ -319,7 +565,8 @@ export function createScenes() {
       case 'fight': {
         const f = G.fight;
         if (G.mode === 3) {
-          if (G.desync) { G.desync = false; return leaveOnline('I due giochi si sono desincronizzati. Riprovate!'); }
+          if (G.desync) { G.desync = false; return leaveOnline('I due giochi si sono desincronizzati. Riprovate!', 'desync'); }
+          if (G.ranked && f.phase === 'match' && !G.ranked.reported) reportRanked(f.champ);
           if (f.phase !== 'match' && (anyPressed('back') || anyPressed('start'))) { G.pauseIdx = 0; setMyPause(true); go('pause'); sfx.move(); break; }
           if (f.phase !== 'match') { netFightStep(true); break; }
         }
@@ -453,21 +700,26 @@ export function createScenes() {
     if (Math.floor(G.t / 30) % 2) text(ctx, isTouch() ? 'Tocca lo schermo' : 'Premi Invio o Pugno', W / 2, 112, { size: 9, align: 'center' });
   }
 
-  function drawMenuList(ctx, items, idx, y0) {
+  function drawMenuList(ctx, items, idx, y0, step = 18) {
     items.forEach((s, i) => {
       const on = i === idx;
-      if (on) box(ctx, W / 2 - 100, y0 + i * 18 - 11, 200, 15, 'rgba(242,194,48,0.18)', '#f2c230');
-      text(ctx, s, W / 2, y0 + i * 18, { size: 9, align: 'center', color: on ? '#f2c230' : '#e6d8f0' });
+      if (on) box(ctx, W / 2 - 100, y0 + i * step - 11, 200, 15, 'rgba(242,194,48,0.18)', '#f2c230');
+      text(ctx, s, W / 2, y0 + i * step, { size: 9, align: 'center', color: on ? '#f2c230' : '#e6d8f0' });
     });
   }
 
   function drawMenu(ctx) {
     ctx.drawImage(arenaCanvas(), 0, 0);
     ctx.fillStyle = 'rgba(16,8,24,0.7)'; ctx.fillRect(0, 0, W, H);
-    text(ctx, 'WATCHOUT BRO FIGHTERS', W / 2, 40, { size: 18, maxW: 360, align: 'center', color: '#f2c230', weight: 700 });
-    drawMenuList(ctx, MENU(), G.menuIdx, 78);
-    if (G.menuIdx === 3) text(ctx, '◀ ▶ per cambiare', W / 2, 176, { size: 7, align: 'center', color: '#b8a8c8' });
-    text(ctx, isTouch() ? 'Tocca una voce per sceglierla' : 'Su/Giù per scegliere · Pugno o Invio per confermare', W / 2, 200, { size: 7, align: 'center', color: '#b8a8c8' });
+    text(ctx, 'WATCHOUT BRO FIGHTERS', W / 2, 36, { size: 18, maxW: 360, align: 'center', color: '#f2c230', weight: 700 });
+    drawMenuList(ctx, MENU(), G.menuIdx, M_Y, M_STEP);
+    // chi ha fatto l'accesso: nome e coppe in alto a destra
+    if (acct.profile && acct.profile.username) {
+      text(ctx, `${acct.profile.username}  ·  ${acct.profile.trophies} coppe`, W - 8, 12, { size: 6, align: 'right', color: '#f2c230' });
+    } else if (configured()) text(ctx, 'Accedi da "Account e amici"', W - 8, 12, { size: 5, align: 'right', color: '#b8a8c8' });
+    if (G.menuIdx === M_LEVEL) text(ctx, '◀ ▶ per cambiare', W / 2, 192, { size: 6, align: 'center', color: '#b8a8c8' });
+    else if (G.menuIdx === M_RANKED) text(ctx, 'Sfida chi è in coda e vinci coppe: +30 se vinci, -20 se perdi', W / 2, 192, { size: 5, align: 'center', color: '#b8a8c8' });
+    text(ctx, isTouch() ? 'Tocca una voce per sceglierla' : 'Su/Giù per scegliere · Pugno o Invio per confermare', W / 2, 204, { size: 6, align: 'center', color: '#b8a8c8' });
   }
 
   // Tabella di tutti i comandi con i tasti veri. La colonna del controller mostra i tasti
@@ -685,6 +937,39 @@ export function createScenes() {
     text(ctx, 'Oppure apri direttamente il link che ti ha mandato', W / 2, 176, { size: 5, align: 'center', color: '#b8a8c8' });
     text(ctx, 'Esc per tornare indietro', W / 2, 200, { size: 5, align: 'center', color: '#b8a8c8' });
   }
+  function drawRankQueue(ctx) {
+    onlineBg(ctx, 'RANKED');
+    const q = G.rq || {}, R = G.ranked || {};
+    const dots = '.'.repeat(1 + Math.floor(G.t / 20) % 3);
+    const p = acct.profile;
+    if (p) text(ctx, `${p.username}  ·  ${p.trophies} coppe`, W / 2, 62, { size: 7, align: 'center', color: '#f2c230' });
+    const line = q.st === 'guest' || q.st === 'matched' ? `Avversario trovato: ${R.opp || '...'}` : `Cerco un avversario${dots}`;
+    text(ctx, line, W / 2, 104, { size: 9, align: 'center', maxW: 340 });
+    if (q.st === 'guest' || q.st === 'matched') text(ctx, `Mi collego${dots}`, W / 2, 124, { size: 7, align: 'center', color: '#d8c8e8' });
+    else text(ctx, 'Vittoria +30 coppe · Sconfitta -20', W / 2, 124, { size: 6, align: 'center', color: '#d8c8e8' });
+    text(ctx, isTouch() ? 'Tocca qui sotto per annullare' : 'Calcio o Esc per annullare', W / 2, 200, { size: 5, align: 'center', color: '#b8a8c8' });
+  }
+  function drawInviteWait(ctx) {
+    onlineBg(ctx, 'SFIDA');
+    const v = G.inv || {};
+    const dots = '.'.repeat(1 + Math.floor(G.t / 20) % 3);
+    text(ctx, `Hai sfidato ${v.friend ? v.friend.username : ''}`, W / 2, 92, { size: 9, align: 'center', maxW: 340, color: '#f2c230' });
+    text(ctx, v.st === 'sent' ? `Aspetto che accetti${dots}` : `Preparo la stanza${dots}`, W / 2, 116, { size: 8, align: 'center' });
+    text(ctx, 'Partita ranked: vale coppe', W / 2, 136, { size: 6, align: 'center', color: '#d8c8e8' });
+    text(ctx, isTouch() ? 'Tocca qui sotto per annullare' : 'Calcio o Esc per annullare', W / 2, 200, { size: 5, align: 'center', color: '#b8a8c8' });
+  }
+  // risultato ranked sopra la schermata di fine partita
+  function drawRankedResult(ctx) {
+    const res = G.ranked && G.ranked.res;
+    if (!res) return;
+    let t, c = res.won ? '#7fe87f' : '#ff7a6a';
+    if (res.status === 'done') t = res.won ? `Vittoria! +30 coppe (totale ${res.trophies})` : `Sconfitta: -20 coppe (totale ${res.trophies})`;
+    else if (res.status === 'disputed') { t = 'Risultati diversi: partita annullata, coppe invariate'; c = '#f2c230'; }
+    else if (res.status === 'error') { t = 'Non riesco a mandare il risultato al server'; c = '#f2c230'; }
+    else t = `${res.won ? 'Vittoria' : 'Sconfitta'}: aspetto la conferma dell'avversario...`;
+    box(ctx, W / 2 - 150, 148, 300, 16, 'rgba(16,8,24,0.85)', c);
+    text(ctx, t, W / 2, 159, { size: 6, align: 'center', color: c, maxW: 290 });
+  }
   function drawNetMsg(ctx, title, lines, foot) {
     onlineBg(ctx, title);
     lines.forEach((l, i) => text(ctx, l, W / 2, 96 + i * 14, { size: 8, align: 'center', maxW: 340 }));
@@ -728,13 +1013,18 @@ export function createScenes() {
       case 'netwait': return drawNetWait(ctx);
       case 'netjoin': return drawNetJoin(ctx);
       case 'netconnect': return drawNetMsg(ctx, 'COLLEGAMENTO', [`Mi collego alla stanza BRO-${G.joinCode}...`], 'Calcio per annullare');
-      case 'netmsg': return drawNetMsg(ctx, 'ONLINE', [G.netMsg], 'Premi un tasto per continuare');
+      case 'netmsg': return drawNetMsg(ctx, G.msgBack === 'menu' ? 'RANKED' : 'ONLINE', [G.netMsg], 'Premi un tasto per continuare');
+      case 'rankq': return drawRankQueue(ctx);
+      case 'invwait': return drawInviteWait(ctx);
+      case 'account': return onlineBg(ctx, 'ACCOUNT');
+      case 'board': return drawBoard(ctx);
       case 'moves': return drawMoves(ctx);
       case 'end': {
         drawPause(ctx, `${G.fight.f[G.fight.champ].ch.name} vince!`, END_ITEMS(), G.endIdx);
+        drawRankedResult(ctx);
         if (G.mode === 3 && G.rematch.some(Boolean)) {
           const me = G.net.mySide;
-          text(ctx, G.rematch[me] ? 'Rivincita chiesta: aspetto l\'amico...' : 'L\'amico vuole la rivincita!', W / 2, 168, { size: 7, align: 'center', color: '#7fe8ff' });
+          text(ctx, G.rematch[me] ? 'Rivincita chiesta: aspetto l\'amico...' : 'L\'amico vuole la rivincita!', W / 2, G.ranked && G.ranked.res ? 180 : 168, { size: 7, align: 'center', color: '#7fe8ff' });
         }
         return;
       }

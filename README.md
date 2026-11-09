@@ -77,6 +77,54 @@ il collegamento diretto non riesce: si usa Open Relay di Metered, gratis fino a 
 usa pochi MB). Crea un account su https://dashboard.metered.ca/signup?tool=turnserver e copia username,
 password e indirizzi delle credenziali TURN in `src/turn.js`. Senza, l'online funziona di sicuro solo sulla stessa rete.
 
+### Account, ranked e amici
+
+Menu principale → **Ranked**, **Classifica** o **Account e amici**. Ognuno accede con il suo account Google;
+al primo accesso compare "Benvenuto!" e si sceglie il nome da lottatore con cui si compare online (da 3 a 12
+caratteri, unico; viene proposto il nome dell'account Google). Poi:
+
+- **Ranked**: si entra in coda e si gioca contro il primo che cerca partita. Chi vince prende **+30 coppe**,
+  chi perde ne lascia **20** (mai sotto zero). Anche la rivincita vale coppe.
+- **Amici**: nel pannello si aggiunge un amico con il suo nome da lottatore; lui accetta la richiesta.
+  Il pallino verde dice chi è online. **Sfida** gli manda un invito: gli compare un avviso con
+  "Accetta". Anche le sfide tra amici valgono coppe.
+- **Classifica** (voce del menu): tutti i lottatori che hanno fatto l'accesso, in ordine di coppe, con
+  vittorie, sconfitte e pallino verde per chi è online. Si vede anche senza accesso; la tua riga è evidenziata.
+
+A fine partita ognuno dei due manda al server il vincitore: se coincidono arrivano le coppe, se non
+coincidono la partita si annulla. Chi esce o si scollega a partita iniziata perde (vittoria a tavolino per
+l'altro). Se uno dei due non manda mai il risultato, la partita si chiude dopo 5 minuti con quello dell'altro.
+Il combattimento resta diretto tra i due dispositivi (come l'online con il codice); il server tiene solo
+account, amici, coda, inviti e coppe. Le regole stanno nelle funzioni di `supabase/schema.sql`: il browser
+non può scrivere direttamente nelle tabelle.
+
+**Configurazione (una volta sola, gratis)** con [Supabase](https://supabase.com):
+
+1. Crea un account su Supabase e un nuovo progetto (piano Free, regione Europa).
+2. **SQL Editor** → New query → incolla tutto `supabase/schema.sql` → **Run**.
+3. Su [Google Cloud Console](https://console.cloud.google.com): crea un progetto, poi
+   **APIs & Services → OAuth consent screen** (tipo External, nome "WatchOut Bro Fighters", la tua email),
+   e **Credentials → Create credentials → OAuth client ID** → tipo *Web application*. In
+   *Authorized redirect URIs* metti `https://<il-tuo-progetto>.supabase.co/auth/v1/callback`
+   (l'indirizzo esatto lo mostra Supabase nella pagina del provider Google). Copia Client ID e Client secret.
+   Nella schermata di consenso servono i link: home page `https://marcoladuu.github.io/WatchOutBroFighters/`,
+   privacy `https://marcoladuu.github.io/WatchOutBroFighters/privacy.html`, termini
+   `https://marcoladuu.github.io/WatchOutBroFighters/termini.html` (pagine in `public/`), dominio autorizzato
+   `marcoladuu.github.io`. Poi premi **Publish app**: in modalità "Testing" possono entrare solo
+   gli utenti di prova aggiunti a mano.
+4. Supabase → **Authentication → Sign In / Providers → Google**: attivalo e incolla Client ID e secret.
+5. Supabase → **Authentication → URL Configuration**: *Site URL*
+   `https://marcoladuu.github.io/WatchOutBroFighters/`; in *Redirect URLs* aggiungi lo stesso indirizzo e,
+   per le prove in locale, `http://localhost:5173/` (e l'indirizzo di rete di `npm run dev:rete`, tipo
+   `http://192.168.1.10:5173/`).
+6. Supabase → **Project Settings**: copia il *Project URL* (sezione *Data API*) e la **Publishable key**
+   (sezione *API Keys*, inizia con `sb_publishable_`) in `src/supabase-config.js`. La publishable è fatta
+   per stare nel browser; **mai** la *Secret key* (`sb_secret_...`).
+7. `npm run deploy`.
+
+Senza configurazione il resto del gioco funziona come prima. Sul piano gratuito Supabase mette in pausa
+il progetto dopo 7 giorni senza attività (manda prima una email): si riattiva dalla dashboard.
+
 ### Da telefono o tablet
 
 Con lo schermo in orizzontale compaiono i comandi touch (per il Giocatore 1, contro la CPU):
@@ -119,6 +167,8 @@ public/
   music/             musiche: main (menu) e fight (combattimento), in OGG e MP3
 scripts/
   deploy.js          build + commit + push per GitHub Pages
+supabase/
+  schema.sql         tabelle e funzioni del server: profili, amici, coda ranked, inviti, coppe
 src/
   main.js            avvio di Phaser: BootScene prepara immagini e fotogrammi, GameScene fa girare il gioco
   config.js          risoluzione, gravità, durata dei round
@@ -126,6 +176,9 @@ src/
   touch.js           comandi sullo schermo per telefono e tablet
   net.js             gioco online: collegamento PeerJS, codici stanza, lockstep dei tasti
   turn.js            dati del server TURN (Metered) per giocare online da reti diverse
+  account.js         account su Supabase: accesso con Google, profilo e coppe, chiamate al server
+  account-ui.js      pannello "Account e amici" (amici, classifica) e avviso delle sfide ricevute
+  supabase-config.js indirizzo e chiave anon del progetto Supabase
   audio.js           effetti sonori sintetizzati e musica in giro continuo
   screens.js         titolo, menu, comandi, selezione, VS, pausa, mosse, fine incontro
   ui.js              scritte (Press Start 2P + frecce e simboli disegnati in pixel) e riquadri

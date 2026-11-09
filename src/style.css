@@ -150,3 +150,72 @@ body.touch-on.fs-ask .tc-fs {
 .tc-fs p { margin: 0; font-size: 12px; line-height: 1.9; }
 .tc-fs p.small { font-size: 9px; color: #e6d8f0; }
 .tc-fs-skip { margin-top: 6px; font-size: 8px; color: #b8a8c8; text-decoration: underline; padding: 8px; }
+
+/* ---------- account e amici (account-ui.js) ---------- */
+.acc {
+  position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center;
+  background: rgba(8, 4, 14, 0.6); font-family: 'Press Start 2P', monospace; color: #e6d8f0;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+.acc-box {
+  width: min(560px, 94vw); max-height: 92vh; display: flex; flex-direction: column;
+  background: #1a1020; border: 3px solid #f2c230; border-radius: 8px; box-shadow: 0 6px 0 #3a1020;
+}
+.acc-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; color: #f2c230; font-size: 13px; border-bottom: 2px solid #3a2c4a; }
+.acc-body { padding: 12px 14px; overflow-y: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch; font-size: 10px; line-height: 1.7; }
+.acc-body p { margin: 6px 0 10px; }
+.acc-foot { padding: 0 14px 10px; text-align: right; }
+.acc-dim { color: #9a8aaa; font-size: 8px; }
+.acc button {
+  font: inherit; font-size: 9px; padding: 8px 10px; cursor: pointer; border-radius: 5px;
+  background: #f2c230; color: #1a1020; border: 2px solid #1a1020; touch-action: manipulation;
+}
+.acc button:disabled { background: #4a3c5a; color: #8a7a9a; cursor: default; }
+.acc button.acc-no { background: #3a2c4a; color: #e6d8f0; }
+.acc .acc-x { background: none; color: #f2c230; border: none; font-size: 14px; padding: 4px 8px; }
+.acc .acc-link { background: none; border: none; color: #9a8aaa; font-size: 8px; text-decoration: underline; }
+.acc .acc-big { display: block; margin: 16px auto 8px; font-size: 11px; padding: 12px 16px; background: #fff; color: #222; }
+.acc-g { color: #4285f4; font-weight: bold; margin-right: 6px; }
+.acc-row { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
+.acc input {
+  flex: 1; min-width: 0; font: inherit; font-size: 11px; padding: 9px 8px; border-radius: 5px; outline: none;
+  background: #0f0814; color: #f2c230; border: 2px solid #f2c230; user-select: text; -webkit-user-select: text;
+}
+.acc input::placeholder { color: #6a5a7a; }
+.acc-me { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; margin-bottom: 10px; }
+.acc-name { color: #f2c230; font-size: 13px; }
+.acc-cup { color: #f2c230; font-size: 9px; white-space: nowrap; }
+.acc-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+.acc-tabs button { background: #3a2c4a; color: #e6d8f0; }
+.acc-tabs button.on { background: #f2c230; color: #1a1020; }
+.acc-tabs b { background: #ff5a4a; color: #fff; border-radius: 8px; padding: 1px 5px; margin-left: 4px; font-weight: normal; }
+.acc-sub { color: #7fe8ff; font-size: 8px; margin: 12px 0 4px; }
+.acc-fr { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid #2a1c3a; }
+.acc-fn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc-dot { width: 9px; height: 9px; border-radius: 50%; background: #4a3c5a; flex: none; }
+.acc-dot.on { background: #5ae85a; box-shadow: 0 0 6px #5ae85a; }
+.acc-msg { margin: 0 14px 10px; padding: 8px; font-size: 8px; line-height: 1.6; color: #7fe8ff; border: 1px solid #2a4a5a; border-radius: 4px; }
+.acc-msg.err { color: #ff7a6a; border-color: #5a2a2a; }
+.acc-board { width: 100%; border-collapse: collapse; font-size: 9px; }
+.acc-board th { color: #9a8aaa; font-weight: normal; text-align: left; padding: 4px; }
+.acc-board td { padding: 5px 4px; border-bottom: 1px solid #2a1c3a; }
+.acc-board tr.me td { color: #f2c230; }
+
+/* avviso di una sfida ricevuta */
+.acc-toast {
+  position: fixed; z-index: 25; top: calc(env(safe-area-inset-top, 0px) + 12px); left: 50%; transform: translateX(-50%);
+  min-width: 240px; padding: 10px 14px; text-align: center; font-family: 'Press Start 2P', monospace; font-size: 10px; line-height: 1.8;
+  color: #e6d8f0; background: #1a1020; border: 3px solid #ff5a4a; border-radius: 8px; box-shadow: 0 4px 0 #3a1020;
+  animation: acc-pop 0.25s ease-out;
+}
+.acc-toast b { color: #f2c230; }
+.acc-toast .acc-row { justify-content: center; }
+.acc-toast button { font: inherit; font-size: 9px; padding: 8px 12px; cursor: pointer; border-radius: 5px; background: #f2c230; color: #1a1020; border: 2px solid #1a1020; touch-action: manipulation; }
+.acc-toast button.acc-no { background: #3a2c4a; color: #e6d8f0; }
+.acc-dim { color: #9a8aaa; font-size: 8px; }
+@keyframes acc-pop { from { transform: translate(-50%, -20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+.acc-welcome { color: #f2c230; font-size: 16px; text-align: center; margin: 6px 0 10px; text-shadow: 0 3px 0 #3a1020; }
+.acc-badge { background: #ff5a4a; color: #fff; border-radius: 8px; padding: 1px 5px; margin-left: 4px; font-weight: normal; }
+.acc a.acc-link { font-size: 8px; color: #9a8aaa; }
+.acc-foot { line-height: 2.2; }
+.acc-foot .acc-link { padding: 2px 0; }
