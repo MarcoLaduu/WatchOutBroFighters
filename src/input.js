@@ -94,3 +94,8 @@ export function releaseTouch() { for (const a in touchState) touchState[a] = fal
 let tap = null;
 export function pushTap(x, y) { tap = { x, y }; unlockAudio(); }
 export function takeTap() { const t = tap; tap = null; return t; }
+
+// Tasto di una mossa speciale sullo schermo (telefono): la mossa parte senza fare la combinazione.
+let touchSpecial = null;
+export function pushTouchSpecial(code) { touchSpecial = code; unlockAudio(); }
+export function takeTouchSpecial() { const c = touchSpecial; touchSpecial = null; return c; }

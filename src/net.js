@@ -50,16 +50,21 @@ export function shareLink(code) {
   const u = new URL(location.href); u.hash = `BRO-${code}`; return u.toString();
 }
 
-// Tasti in un numero: 7 bit "tenuti" + 7 bit "appena premuti".
-export function packInput(held, pressed) {
+// Tasti in un numero: 7 bit "tenuti" + 7 bit "appena premuti" + 4 bit per una mossa speciale
+// lanciata dal tasto sullo schermo del telefono (0 = nessuna).
+const SP_CODES = ['DFP', 'DFK', 'BFP', 'BFK', 'DBP', 'DBK', 'DDP', 'DDK', 'super'];
+export function packInput(held, pressed, special = null) {
   let b = 0;
   ACTS.forEach((a, i) => { if (held[a]) b |= 1 << i; if (pressed[a]) b |= 1 << (i + 7); });
+  const sp = SP_CODES.indexOf(special);
+  if (sp >= 0) b |= (sp + 1) << 14;
   return b;
 }
 export function unpackInput(b) {
   const held = {}, pressed = {};
   ACTS.forEach((a, i) => { held[a] = !!(b & (1 << i)); pressed[a] = !!(b & (1 << (i + 7))); });
-  return { held, pressed };
+  const sp = (b >> 14) & 15;
+  return { held, pressed, special: sp ? SP_CODES[sp - 1] : null };
 }
 
 // Una sessione online. Eventi: onStatus(testo), onMessage(msg), onClose(motivo).
@@ -214,7 +219,9 @@ export class NetSession {
 
   // Prende i miei tasti di questo fotogramma e li spedisce (per il fotogramma gen).
   pushLocal(bits) {
-    this.pending |= bits & ~0x7f;                    // un tocco veloce non va perso se non spedisco subito
+    // un tocco veloce (o una mossa dal tasto speciale) non va perso se non spedisco subito
+    if ((this.pending >> 14) && (bits >> 14)) bits &= 0x3fff;  // una mossa speciale alla volta
+    this.pending |= bits & ~0x7f;
     // il mio "orologio" va avanti a ogni giro anche se per un attimo manca un tasto dell'altro
     // (si recupera col passo doppio); si ferma solo se l'altro è indietro di molto
     if (this.gen - this.next < this.delay + 10) {

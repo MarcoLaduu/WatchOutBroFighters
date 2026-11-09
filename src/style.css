@@ -119,3 +119,34 @@ body.touch-on .tc { display: block; }
   padding: 14px 14px; font: inherit; font-size: 12px; cursor: pointer;
   background: #f2c230; color: #1a1020; border: 3px solid #1a1020; border-radius: 6px;
 }
+
+/* tasti delle mosse speciali (telefono): in colonna sopra i tasti di destra */
+.tc-sp {
+  position: fixed; right: calc(env(safe-area-inset-right, 0px) + 2vw); top: calc(env(safe-area-inset-top, 0px) + 13vh);
+  display: flex; flex-direction: column; gap: 1.2vh; pointer-events: none;
+}
+.tc-spb {
+  pointer-events: auto; touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none;
+  width: clamp(84px, 30vh, 140px); padding: 0.8vh 6px; border-radius: 8px;
+  background: rgba(127, 232, 255, 0.22); border: 2px solid rgba(127, 232, 255, 0.6); color: #fff;
+  display: flex; flex-direction: column; gap: 2px; text-align: center;
+}
+.tc-spb b { font-weight: normal; font-size: clamp(5px, 1.9vh, 8px); line-height: 1.3; text-shadow: 1px 1px 0 #1a1020; }
+.tc-spb i { font-style: normal; font-size: clamp(5px, 1.6vh, 7px); color: #bfefff; }
+.tc-spb.on { background: rgba(127, 232, 255, 0.6); transform: scale(0.95); }
+.tc.menu .tc-sp { display: none; }
+/* a destra ci sono le speciali: il tasto pausa va in alto a sinistra */
+.tc-btn.pause { right: auto; left: calc(env(safe-area-inset-left, 0px) + 2vw); top: calc(env(safe-area-inset-top, 0px) + 3vh); }
+
+/* invito a giocare a schermo intero */
+.tc-fs { display: none; }
+body.touch-on.fs-ask .tc-fs {
+  display: flex; position: fixed; inset: 0; z-index: 18; align-items: center; justify-content: center;
+  background: rgba(10, 6, 16, 0.86); font-family: 'Press Start 2P', monospace; color: #f2c230; text-align: center;
+  touch-action: none;
+}
+.tc-fs-in { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 16px; }
+.tc-fs .big { font-size: 44px; color: #fff; }
+.tc-fs p { margin: 0; font-size: 12px; line-height: 1.9; }
+.tc-fs p.small { font-size: 9px; color: #e6d8f0; }
+.tc-fs-skip { margin-top: 6px; font-size: 8px; color: #b8a8c8; text-decoration: underline; padding: 8px; }

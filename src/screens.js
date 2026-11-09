@@ -4,7 +4,7 @@ import { W, H } from './config.js';
 import { ROSTER } from './data/roster.js';
 import { MOVESETS, BASE_MOVES } from './data/movesets.js';
 import { ART } from './sprites/index.js';
-import { wasPressed, anyPressed, confirm as pressConfirm, cancel, padType, takeTap, isTouch, isHeld } from './input.js';
+import { wasPressed, anyPressed, confirm as pressConfirm, cancel, padType, takeTap, isTouch, isHeld, takeTouchSpecial } from './input.js';
 import { NetSession, packInput, unpackInput, makeRng, fightHash, shareLink, cleanCode } from './net.js';
 import { humanCtrl, cpuCtrl, LEVELS } from './game/controllers.js';
 import { Fight } from './game/fight.js';
@@ -150,7 +150,7 @@ export function createScenes() {
       held[a] = acceptInput && (isHeld(0, a) || isHeld(1, a));
       pressed[a] = acceptInput && (wasPressed(0, a) || wasPressed(1, a));
     }
-    n.pushLocal(packInput(held, pressed));
+    n.pushLocal(packInput(held, pressed, acceptInput ? takeTouchSpecial() : null));
     // al massimo 2 fotogrammi per giro: se si è rimasti indietro si recupera senza salti bruschi
     let stepped = 0;
     for (let steps = 0; steps < 2; steps++) {
@@ -520,9 +520,9 @@ export function createScenes() {
       ['Parata', 'Tasto grigio (↓ + Parata = parata bassa)'],
       ['Pugno basso', '↓ + Pugno'],
       ['Spazzata', '↓ + Calcio'],
-      ['Mosse speciali', 'es. ↓ → + Pugno (→ verso l\'avversario)'],
+      ['Mosse speciali', 'Tasti azzurri a destra, oppure ↓ → + Pugno...'],
       ['Super', 'Tasto SUPER, compare con la barra piena'],
-      ['Pausa', 'Tasto II in alto a destra'],
+      ['Pausa', 'Tasto II in alto a sinistra'],
     ];
     rows.forEach(([a, b], i) => {
       text(ctx, a, 20, 50 + i * 15, { size: 7, color: '#f2c230', maxW: 110 });

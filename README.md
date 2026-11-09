@@ -81,7 +81,12 @@ password e indirizzi delle credenziali TURN in `src/turn.js`. Senza, l'online fu
 
 Con lo schermo in orizzontale compaiono i comandi touch (per il Giocatore 1, contro la CPU):
 croce a sinistra, Pugno (rosso), Calcio (blu) e Parata a destra, tasto **SUPER** quando la barra è piena
-e **II** in alto a destra per la pausa. Nei menu si toccano direttamente le voci; nella scelta del
+e **II** in alto a sinistra per la pausa. In combattimento, a destra, ci sono anche i tasti azzurri con le
+mosse speciali del proprio lottatore (nome e combinazione): si possono lanciare con un tocco, anche online.
+
+All'avvio il telefono chiede di passare a schermo intero (Android). Su iPhone Safari non lo permette alle
+pagine: si aggiunge il gioco alla schermata Home (Condividi → "Aggiungi alla schermata Home") e dall'icona
+si apre a schermo intero, senza barre (`public/manifest.webmanifest`, icone `public/icon-*.png`). Nei menu si toccano direttamente le voci; nella scelta del
 lottatore un tocco lo seleziona e un secondo tocco lo conferma. Al primo tocco il gioco va a schermo
 intero dove il browser lo permette (Android sì, iPhone no). Con un controller collegato o una tastiera
 i comandi touch spariscono.

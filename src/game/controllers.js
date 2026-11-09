@@ -1,5 +1,5 @@
 // Chi muove un lottatore: un giocatore umano (tastiera/controller) o la CPU.
-import { isHeld, wasPressed } from '../input.js';
+import { isHeld, wasPressed, takeTouchSpecial } from '../input.js';
 
 const ACTS = ['left', 'right', 'up', 'down', 'punch', 'kick', 'block'];
 
@@ -8,7 +8,8 @@ export function humanCtrl(p) {
     read() {
       const held = {}, pressed = {};
       for (const a of ACTS) { held[a] = isHeld(p, a); pressed[a] = wasPressed(p, a); }
-      return { held, pressed };
+      // G1 al telefono: le mosse speciali possono arrivare dai tasti sullo schermo
+      return { held, pressed, special: p === 0 ? takeTouchSpecial() : null };
     },
   };
 }
