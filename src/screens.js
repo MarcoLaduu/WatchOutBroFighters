@@ -19,7 +19,7 @@ const COLS = 5, TILE = 32; // griglia di selezione 5 x 3 (fino a 15 lottatori)
 
 export function createScenes() {
   const G = {
-    scene: 'title', t: 0, mode: 1, level: 1, menuIdx: 0,
+    scene: 'title', t: 0, mode: 1, level: 1, menuIdx: 0, playIdx: 0,
     sel: [0, 1], locked: [false, false], fight: null, pauseIdx: 0, endIdx: 0, movesSide: 0,
     // online (mode 3): sessione, voce del menu online, messaggio, codice da un link condiviso
     net: null, netPause: [false, false], onlineIdx: 0, netMsg: '', netEvents: [], autoJoin: null, rematch: [false, false], copied: 0,
@@ -54,7 +54,8 @@ export function createScenes() {
   }
 
   // ---------- online ----------
-  const ONLINE_MENU = ['Crea una stanza', 'Entra con un codice', 'Indietro'];
+  const ONLINE_MENU = ['Ranked', 'Crea una stanza', 'Entra con un codice', 'Indietro'];
+  const O_N = ONLINE_MENU.length;
   const PAUSE_ITEMS = () => G.mode === 3 ? ['Riprendi', 'Mosse dei lottatori', 'Esci dalla partita'] : ['Riprendi', 'Mosse dei lottatori', 'Cambia lottatori', 'Menu principale'];
   const END_ITEMS = () => G.mode === 3 ? ['Rivincita', 'Cambia lottatori', 'Esci dalla partita'] : ['Rivincita', 'Cambia lottatori', 'Menu principale'];
 
@@ -80,9 +81,9 @@ export function createScenes() {
       if (G.inv && G.inv.id && G.mode !== 3) rpc('invite_cancel').catch(() => {});
     }
     if (G.net) { G.net.send({ t: 'quit' }); const n = G.net; setTimeout(() => n.close(), 200); }
-    G.msgBack = R ? 'menu' : 'online';
+    G.msgBack = 'online';
     G.net = null; G.mode = 1; G.netPause = [false, false]; G.ranked = null; G.rq = null; G.inv = null; G.starting = false; hideCodeInput();
-    if (msg) { G.netMsg = msg; go('netmsg'); } else go('menu');
+    if (msg) { G.netMsg = msg; go('netmsg'); } else go('online');
   }
   function startHost() { newSession().host_(); go('netwait'); }
   function startJoin(code, ranked) {
@@ -235,17 +236,17 @@ export function createScenes() {
   }
   function hideCodeInput() { if (codeBox) { codeBox.remove(); codeBox = null; } }
 
+  // menu principale corto: le modalità stanno nei sottomenu "Gioca" e "Online"
   const MENU = () => [
-    '1 giocatore contro la CPU',
-    '2 giocatori',
-    'Ranked',
+    'Gioca',
+    'Online',
     'Classifica',
-    'Online con un amico (codice)',
     `Account e amici${acct.requests ? ` (${acct.requests})` : ''}`,
-    `Difficoltà CPU: ${LEVELS[G.level].name}`,
     'Comandi',
   ];
-  const M_RANKED = 2, M_BOARD = 3, M_ONLINE = 4, M_ACCOUNT = 5, M_LEVEL = 6, M_N = 8, M_Y = 64, M_STEP = 16;
+  const M_PLAY = 0, M_ONLINE = 1, M_BOARD = 2, M_ACCOUNT = 3, M_N = 5, M_Y = 84, M_STEP = 18;
+  const PLAY_MENU = () => ['Contro la CPU', '2 giocatori', `Difficoltà CPU: ${LEVELS[G.level].name}`, 'Indietro'];
+  const P_LEVEL = 2, P_N = 4;
 
   // ---------- account, ranked e inviti ----------
   function showAccount() {
@@ -398,15 +399,15 @@ export function createScenes() {
     if (G.net) return;
     closeAccount();
     rpc('invite_respond', { p_id: inv.id, p_accept: true }).then(r => {
-      if (!r || r.error) { G.netMsg = 'La sfida è scaduta'; G.msgBack = 'menu'; go('netmsg'); return; }
+      if (!r || r.error) { G.netMsg = 'La sfida è scaduta'; G.msgBack = 'online'; go('netmsg'); return; }
       if (G.net) return;
       G.ranked = { matchId: r.match, opp: r.opp || inv.from, reported: false, res: null };
       startJoin(r.code, true);
-    }).catch(e => { G.netMsg = errText(e); G.msgBack = 'menu'; go('netmsg'); });
+    }).catch(e => { G.netMsg = errText(e); G.msgBack = 'online'; go('netmsg'); });
   }
   const declineInvite = inv => rpc('invite_respond', { p_id: inv.id, p_accept: false }).catch(() => {});
   // l'avviso delle sfide si vede solo quando non si sta giocando
-  const IDLE = ['title', 'menu', 'controls', 'online', 'netmsg', 'account', 'board'];
+  const IDLE = ['title', 'menu', 'play', 'controls', 'online', 'netmsg', 'account', 'board'];
 
   // A fine partita ognuno dei due dice al server chi ha vinto; quando coincidono arrivano le coppe.
   function reportRanked(champ) {
@@ -446,12 +447,13 @@ export function createScenes() {
         break;
       case 'menu': {
         const i = tapItem(tap, M_N, M_Y, M_STEP);
-        if (i >= 0) { G.menuIdx = i; tapOk = true; } // sulla difficoltà: la cambia
+        if (i >= 0) { G.menuIdx = i; tapOk = true; }
         break;
       }
       case 'pause': { const i = tapItem(tap, PAUSE_ITEMS().length, 100); if (i >= 0) { G.pauseIdx = i; tapOk = true; } break; }
       case 'end': { const i = tapItem(tap, END_ITEMS().length, 100); if (i >= 0) { G.endIdx = i; tapOk = true; } break; }
-      case 'online': { const i = tapItem(tap, 3, 92); if (i >= 0) { G.onlineIdx = i; tapOk = true; } break; }
+      case 'online': { const i = tapItem(tap, O_N, 88); if (i >= 0) { G.onlineIdx = i; tapOk = true; } break; }
+      case 'play': { const i = tapItem(tap, P_N, 88); if (i >= 0) { G.playIdx = i; tapOk = true; } break; }
       case 'netwait': if (tap.y > 60 && tap.y < 130) tapOk = true; break;
       case 'netmsg': tapOk = true; break;
       case 'rankq': case 'invwait': if (tap.y > 160) tapOk = true; break;
@@ -496,18 +498,12 @@ export function createScenes() {
       case 'menu': {
         const v = vertical();
         if (v) { G.menuIdx = (G.menuIdx + v + M_N) % M_N; sfx.move(); }
-        const h = horizontal();
-        if (G.menuIdx === M_LEVEL && h) { G.level = (G.level + h + 3) % 3; sfx.move(); }
         if (confirm()) {
           sfx.select();
-          if (G.menuIdx === 0 || G.menuIdx === 1) {
-            G.mode = G.menuIdx === 0 ? 1 : 2; G.locked = [false, false];
-            go('select');
-          } else if (G.menuIdx === M_RANKED) startRanked();
-          else if (G.menuIdx === M_BOARD) showBoard();
+          if (G.menuIdx === M_PLAY) { G.playIdx = 0; go('play'); }
           else if (G.menuIdx === M_ONLINE) { G.onlineIdx = 0; go('online'); }
+          else if (G.menuIdx === M_BOARD) showBoard();
           else if (G.menuIdx === M_ACCOUNT) showAccount();
-          else if (G.menuIdx === M_LEVEL) G.level = (G.level + 1) % 3;
           else go('controls');
         }
         if (cancel()) go('title');
@@ -516,13 +512,27 @@ export function createScenes() {
       case 'controls':
         if (confirm() || cancel()) go('menu');
         break;
-      case 'online': {
+      case 'play': {
         const v = vertical();
-        if (v) { G.onlineIdx = (G.onlineIdx + v + 3) % 3; sfx.move(); }
+        if (v) { G.playIdx = (G.playIdx + v + P_N) % P_N; sfx.move(); }
+        const h = horizontal();
+        if (G.playIdx === P_LEVEL && h) { G.level = (G.level + h + 3) % 3; sfx.move(); }
         if (confirm()) {
           sfx.select();
-          if (G.onlineIdx === 0) startHost();
-          else if (G.onlineIdx === 1) { G.netMsg = ''; go('netjoin'); showCodeInput(); }
+          if (G.playIdx === 0 || G.playIdx === 1) { G.mode = G.playIdx === 0 ? 1 : 2; G.locked = [false, false]; go('select'); }
+          else if (G.playIdx === P_LEVEL) G.level = (G.level + 1) % 3;
+          else go('menu');
+        } else if (cancel()) go('menu');
+        break;
+      }
+      case 'online': {
+        const v = vertical();
+        if (v) { G.onlineIdx = (G.onlineIdx + v + O_N) % O_N; sfx.move(); }
+        if (confirm()) {
+          sfx.select();
+          if (G.onlineIdx === 0) startRanked();
+          else if (G.onlineIdx === 1) startHost();
+          else if (G.onlineIdx === 2) { G.netMsg = ''; go('netjoin'); showCodeInput(); }
           else go('menu');
         } else if (cancel()) go('menu');
         break;
@@ -668,7 +678,7 @@ export function createScenes() {
       G.sel[i] = gridMove(G.sel[i], dx, dy); sfx.move();
     };
     if (G.mode === 2) {
-      if (!G.locked[0] && !G.locked[1] && wasPressed(0, 'back')) { go('menu'); return; }
+      if (!G.locked[0] && !G.locked[1] && wasPressed(0, 'back')) { go('play'); return; }
       for (let p = 0; p < 2; p++) {
         if (!G.locked[p]) { move(p, p); if (confirm(p)) { G.locked[p] = true; sfx.select(); } }
         else if (cancel(p)) G.locked[p] = false;
@@ -678,7 +688,7 @@ export function createScenes() {
       if (!G.locked[i]) {
         move(i, 0);
         if (confirm(0)) { G.locked[i] = true; sfx.select(); }
-        if (cancel(0)) { if (i === 1) G.locked[0] = false; else go('menu'); }
+        if (cancel(0)) { if (i === 1) G.locked[0] = false; else go('play'); }
       }
     }
     if (G.locked[0] && G.locked[1]) { if (G.selDone === undefined) G.selDone = G.t; if (G.t - G.selDone > 30) { G.selDone = undefined; go('vs'); } }
@@ -711,14 +721,14 @@ export function createScenes() {
   function drawMenu(ctx) {
     ctx.drawImage(arenaCanvas(), 0, 0);
     ctx.fillStyle = 'rgba(16,8,24,0.7)'; ctx.fillRect(0, 0, W, H);
-    text(ctx, 'WATCHOUT BRO FIGHTERS', W / 2, 36, { size: 18, maxW: 360, align: 'center', color: '#f2c230', weight: 700 });
+    text(ctx, 'WATCHOUT BRO FIGHTERS', W / 2, 44, { size: 18, maxW: 360, align: 'center', color: '#f2c230', weight: 700 });
     drawMenuList(ctx, MENU(), G.menuIdx, M_Y, M_STEP);
     // chi ha fatto l'accesso: nome e coppe in alto a destra
     if (acct.profile && acct.profile.username) {
       text(ctx, `${acct.profile.username}  ·  ${acct.profile.trophies} coppe`, W - 8, 12, { size: 6, align: 'right', color: '#f2c230' });
     } else if (configured()) text(ctx, 'Accedi da "Account e amici"', W - 8, 12, { size: 5, align: 'right', color: '#b8a8c8' });
-    if (G.menuIdx === M_LEVEL) text(ctx, '◀ ▶ per cambiare', W / 2, 192, { size: 6, align: 'center', color: '#b8a8c8' });
-    else if (G.menuIdx === M_RANKED) text(ctx, 'Sfida chi è in coda e vinci coppe: +30 se vinci, -20 se perdi', W / 2, 192, { size: 5, align: 'center', color: '#b8a8c8' });
+    const hint = ['Contro la CPU o in due sullo stesso dispositivo', 'Ranked e partite con un amico', 'Le coppe di tutti i lottatori', 'Accesso, nome e amici', 'Tasti di tastiera e controller'][G.menuIdx];
+    if (hint) text(ctx, hint, W / 2, 182, { size: 6, align: 'center', color: '#b8a8c8' });
     text(ctx, isTouch() ? 'Tocca una voce per sceglierla' : 'Su/Giù per scegliere · Pugno o Invio per confermare', W / 2, 204, { size: 6, align: 'center', color: '#b8a8c8' });
   }
 
@@ -910,9 +920,23 @@ export function createScenes() {
   }
   function drawOnline(ctx) {
     onlineBg(ctx, 'ONLINE');
-    text(ctx, 'Gioca con un amico, ognuno dal suo dispositivo', W / 2, 62, { size: 6, align: 'center', color: '#d8c8e8' });
-    drawMenuList(ctx, ONLINE_MENU, G.onlineIdx, 92);
-    text(ctx, 'Chi crea la stanza manda il codice (o il link) all\'altro', W / 2, 168, { size: 5, align: 'center', color: '#b8a8c8' });
+    text(ctx, 'Ognuno gioca dal suo dispositivo', W / 2, 62, { size: 6, align: 'center', color: '#d8c8e8' });
+    drawMenuList(ctx, ONLINE_MENU, G.onlineIdx, 88);
+    const hint = [
+      'Sfida chi è in coda e vinci coppe: +30 se vinci, -20 se perdi',
+      'Crei una stanza e mandi il codice (o il link) all\'amico',
+      'Entri nella stanza di un amico con il suo codice',
+      '',
+    ][G.onlineIdx];
+    if (hint) text(ctx, hint, W / 2, 168, { size: 5, align: 'center', color: '#b8a8c8' });
+    if (G.onlineIdx === 0 && needAccount()) text(ctx, 'Serve l\'account: si apre il pannello per accedere', W / 2, 180, { size: 5, align: 'center', color: '#f2c230' });
+    text(ctx, 'Per sfidare un amico preciso: Account e amici → Sfida', W / 2, 200, { size: 5, align: 'center', color: '#8a7a9a' });
+  }
+  function drawPlay(ctx) {
+    onlineBg(ctx, 'GIOCA');
+    drawMenuList(ctx, PLAY_MENU(), G.playIdx, 88);
+    if (G.playIdx === P_LEVEL) text(ctx, '◀ ▶ per cambiare', W / 2, 168, { size: 6, align: 'center', color: '#b8a8c8' });
+    text(ctx, isTouch() ? 'Tocca una voce per sceglierla' : 'Su/Giù per scegliere · Calcio o Esc per tornare', W / 2, 200, { size: 5, align: 'center', color: '#b8a8c8' });
   }
   function drawNetWait(ctx) {
     onlineBg(ctx, 'STANZA');
@@ -1013,7 +1037,8 @@ export function createScenes() {
       case 'netwait': return drawNetWait(ctx);
       case 'netjoin': return drawNetJoin(ctx);
       case 'netconnect': return drawNetMsg(ctx, 'COLLEGAMENTO', [`Mi collego alla stanza BRO-${G.joinCode}...`], 'Calcio per annullare');
-      case 'netmsg': return drawNetMsg(ctx, G.msgBack === 'menu' ? 'RANKED' : 'ONLINE', [G.netMsg], 'Premi un tasto per continuare');
+      case 'netmsg': return drawNetMsg(ctx, 'ONLINE', [G.netMsg], 'Premi un tasto per continuare');
+      case 'play': return drawPlay(ctx);
       case 'rankq': return drawRankQueue(ctx);
       case 'invwait': return drawInviteWait(ctx);
       case 'account': return onlineBg(ctx, 'ACCOUNT');

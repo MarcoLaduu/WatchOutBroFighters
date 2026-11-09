@@ -58,7 +58,11 @@ nei menu i tasti mostrati cambiano da soli tra tastiera, controller Xbox e PlayS
 
 ### Online con un amico
 
-Menu principale → **Online con un amico**:
+Il menu principale ha cinque voci: **Gioca** (contro la CPU, in due sullo stesso dispositivo, difficoltà
+della CPU), **Online** (Ranked, Crea una stanza, Entra con un codice), **Classifica**, **Account e amici** e
+**Comandi**.
+
+Menu principale → **Online** → **Crea una stanza** / **Entra con un codice**:
 
 1. Uno sceglie **Crea una stanza** e ottiene un codice tipo `BRO-K7PQ`. Con Pugno/Invio (o toccando il
    codice sul telefono) copia/condivide il link della stanza.
@@ -79,7 +83,7 @@ password e indirizzi delle credenziali TURN in `src/turn.js`. Senza, l'online fu
 
 ### Account, ranked e amici
 
-Menu principale → **Ranked**, **Classifica** o **Account e amici**. Ognuno accede con il suo account Google;
+**Online → Ranked**, **Classifica** o **Account e amici** dal menu principale. Ognuno accede con il suo account Google;
 al primo accesso compare "Benvenuto!" e si sceglie il nome da lottatore con cui si compare online (da 3 a 12
 caratteri, unico; viene proposto il nome dell'account Google). Poi:
 
