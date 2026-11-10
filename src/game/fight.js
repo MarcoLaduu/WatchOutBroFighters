@@ -1,13 +1,27 @@
 // Un incontro: round, timer, colpi, K.O. e fine partita (solo logica e scritte).
 import { W, H, GROUND, ROUND_TIME, ROUNDS_TO_WIN } from '../config.js';
 import { Fighter } from './fighter.js';
-import { METER_MAX } from './specials.js';
+import { METER_MAX, slotCodes, cooldownOf } from './specials.js';
 import { ART } from '../sprites/index.js';
 import { text, box, P1C, P2C, CPUC } from '../ui.js';
 import { sfx } from '../audio.js';
 import { isTouch } from '../input.js';
 
 const overlap = (a, b) => a && b && a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+
+// Cifre in pixel 3x5 (il carattere del gioco a misure così piccole viene sfocato e storto).
+const DIGITS = ['111101101101111', '010110010010111', '111001111100111', '111001111001111', '101101111001001',
+  '111100111001111', '111100111101111', '111001001001001', '111101111101111', '111101111001111'];
+function pixelNum(ctx, n, cx, y, color) {
+  const str = String(n), w = str.length * 4 - 1;
+  let x = Math.round(cx - w / 2);
+  ctx.fillStyle = color;
+  for (const ch of str) {
+    const g = DIGITS[+ch];
+    for (let k = 0; k < 15; k++) if (g[k] === '1') ctx.fillRect(x + (k % 3), y + Math.floor(k / 3), 1, 1);
+    x += 4;
+  }
+}
 
 export class Fight {
   constructor(ch1, ch2, ctrl1, ctrl2, labels, opts = {}) {
@@ -293,6 +307,18 @@ export class Fight {
       const fw = Math.round((mw - 2) * f.meter / METER_MAX);
       ctx.fillRect(flip ? mx + mw - 1 - fw : mx + 1, 53, fw, 3);
       if (full) text(ctx, 'SUPER!', flip ? mx - 3 : mx + mw + 3, 57, { size: 4, color: '#7fe8ff', align: flip ? 'right' : 'left' });
+      // mosse speciali 1-4: piena = pronta, si riempie mentre si ricarica
+      const slots = slotCodes(f.ch.id);
+      slots.forEach((code, i) => {
+        const sw = 13, sh = 9, sx = (flip ? x + w + 4 - slots.length * (sw + 2) : x) + i * (sw + 2), sy = 60;
+        const left = f.cd[code] || 0, tot = cooldownOf(f.specials[code]);
+        const ready = left <= 0 && !(f.specials[code].cost > f.meter);
+        box(ctx, sx, sy, sw, sh, '#1a1020', ready ? '#7fe8ff' : '#4a3c5a');
+        const fill = ready ? sw - 2 : Math.round((sw - 2) * (1 - left / tot));
+        ctx.fillStyle = ready ? '#2a7fc8' : '#3a3048';
+        ctx.fillRect(sx + 1, sy + 1, fill, sh - 2);
+        pixelNum(ctx, left > 0 ? Math.ceil(left / 60) : i + 1, sx + sw / 2, sy + 2, ready ? '#fff' : '#b8a8c8');
+      });
       for (let i = 0; i < ROUNDS_TO_WIN; i++) {
         const dx = flip ? x + w - 34 - i * 8 - 6 : x + 31 + i * 8;
         ctx.fillStyle = i < f.wins ? '#f2c230' : '#3a2c4a';

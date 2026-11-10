@@ -134,6 +134,9 @@ body.touch-on .tc { display: block; }
 .tc-spb b { font-weight: normal; font-size: clamp(5px, 1.9vh, 8px); line-height: 1.3; text-shadow: 1px 1px 0 #1a1020; }
 .tc-spb i { font-style: normal; font-size: clamp(5px, 1.6vh, 7px); color: #bfefff; }
 .tc-spb.on { background: rgba(127, 232, 255, 0.6); transform: scale(0.95); }
+.tc-spb i:empty { display: none; }
+.tc-spb.cd { background: rgba(40, 30, 56, 0.55); border-color: rgba(127, 127, 150, 0.45); color: #8a7a9a; }
+.tc-spb.cd i { color: #f2c230; }
 .tc.menu .tc-sp { display: none; }
 /* a destra ci sono le speciali: il tasto pausa va in alto a sinistra */
 .tc-btn.pause { right: auto; left: calc(env(safe-area-inset-left, 0px) + 2vw); top: calc(env(safe-area-inset-top, 0px) + 3vh); }

@@ -46,13 +46,19 @@ Repository: https://github.com/MarcoLaduu/WatchOutBroFighters
 | Pugno | F | K | Quadrato / X |
 | Calcio | G | L | Croce / A |
 | Parata | H | Ò | R1 / RB |
+| Speciali 1 2 3 4 | R T Y U | I O P È (o tastierino 4 5 6 7) | Triangolo/Y, Cerchio/B, L1/LB, L2/LT |
+| Super | E | J (o tastierino 0) | R2 / RT |
 | Pausa | Esc | | Start |
 
 Giù + Pugno è un pugno basso, Giù + Calcio una spazzata che fa cadere (si para solo accovacciati).
 In salto Pugno o Calcio fanno un calcio volante (si para solo in piedi). Drrrrrrago ha il doppio salto.
 
-Mosse speciali: combinazioni ↓ →, ← →, ↓ ←, ↓ ↓ + Pugno o Calcio (→ = verso l'avversario).
-Super: Pugno + Calcio insieme con la barra super piena (si carica colpendo e venendo colpiti).
+Mosse speciali: ognuna ha il suo tasto (Speciale 1-4), niente combinazioni. Per tutti i personaggi la 1 è
+quella che si ricarica prima e l'ultima quella che ci mette di più (di solito il potenziamento).
+Dopo l'uso ogni mossa ha un **cooldown**, contro lo spam: da 2 secondi (proiettili) a 12 (potenziamenti).
+Sotto la barra della super ci sono i riquadri 1-4: azzurri = pronte, grigi con i secondi = in ricarica.
+I tempi stanno in `src/game/specials.js` (`COOLDOWN`, oppure `cd` su una singola mossa).
+Super: tasto Super con la barra piena (si carica colpendo e venendo colpiti).
 L'elenco completo di ogni personaggio è nel menu di pausa, alla voce "Mosse dei lottatori";
 nei menu i tasti mostrati cambiano da soli tra tastiera, controller Xbox e PlayStation.
 
@@ -137,7 +143,8 @@ il progetto dopo 7 giorni senza attività (manda prima una email): si riattiva d
 Con lo schermo in orizzontale compaiono i comandi touch (per il Giocatore 1, contro la CPU):
 croce a sinistra, Pugno (rosso), Calcio (blu) e Parata a destra, tasto **SUPER** quando la barra è piena
 e **II** in alto a sinistra per la pausa. In combattimento, a destra, ci sono anche i tasti azzurri con le
-mosse speciali del proprio lottatore (nome e combinazione): si possono lanciare con un tocco, anche online.
+mosse speciali del proprio lottatore: si lanciano con un tocco, anche online; in ricarica il tasto si spegne e
+mostra i secondi che mancano.
 
 All'avvio il telefono chiede di passare a schermo intero (Android). Su iPhone Safari non lo permette alle
 pagine: si aggiunge il gioco alla schermata Home (Condividi → "Aggiungi alla schermata Home") e dall'icona

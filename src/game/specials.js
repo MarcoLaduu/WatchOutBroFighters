@@ -1,7 +1,7 @@
 // Mosse speciali e super di ogni personaggio, dal move set.
-// Chiave = combinazione relativa al verso del lottatore + tasto:
-//   DF = ↓ →   BF = ← →   DB = ↓ ←   DD = ↓ ↓      P = pugno, K = calcio
-// "super" si fa con Pugno + Calcio insieme quando la barra super è piena: è una scena, il copione è in supers.js.
+// Chiave = codice storico della mossa (era la combinazione: DF = ↓ →, BF = ← →, DB = ↓ ←, DD = ↓ ↓, + P/K).
+// Ora le mosse si fanno con i tasti Speciale 1-4 (vedi slotCodes in fondo) e hanno un cooldown.
+// "super" ha il suo tasto e si usa quando la barra super è piena: è una scena, il copione è in supers.js.
 // kind dice come si comporta la mossa (vedi fighter.js); tempi in fotogrammi, danni prima della forza.
 // anim: animazione usata [preparazione, colpo, recupero] (vedi anim/poses.js).
 
@@ -151,3 +151,19 @@ export const SPECIALS = {
 };
 
 export const METER_MAX = 100;
+
+// ---------- tasti e cooldown ----------
+// Le mosse speciali si fanno con i tasti Speciale 1-4: per tutti la 1 è quella che si ricarica prima,
+// la 4 quella che ci mette di più (di solito il potenziamento). A parità, l'ordine scritto qui sopra.
+
+// Dopo l'uso una mossa speciale resta ferma per un po' (fotogrammi, 60 = 1 secondo), contro lo spam.
+// Il tempo dipende dal tipo di mossa; una mossa può avere un suo "cd" che vale al posto di questo.
+const COOLDOWN = {
+  proj: 120, melee: 180, dash: 180, rising: 180, teleport: 180, counter: 180, chain: 210,
+  grab: 240, hold: 300, channel: 300, zone: 360, trap: 360, barrier: 360, random: 420, rewind: 600, self: 720,
+};
+export const cooldownOf = d => d.cd ?? (d.wave ? 480 : COOLDOWN[d.kind] ?? 240);
+const slotCache = {};
+export const slotCodes = id => slotCache[id] || (slotCache[id] = Object.keys(SPECIALS[id] || {})
+  .filter(c => c !== 'super').map((c, i) => [c, i])
+  .sort((a, b) => cooldownOf(SPECIALS[id][a[0]]) - cooldownOf(SPECIALS[id][b[0]]) || a[1] - b[1]).map(x => x[0]));

@@ -1,14 +1,19 @@
 // Comandi dei due giocatori: tastiera e controller.
-// G1: WASD + F pugno, G calcio, H parata.  G2: frecce + K pugno, L calcio, Ò parata.
-// Controller: il primo collegato è il G1, il secondo il G2. Quadrato/X pugno, Croce/A calcio, R1/RB parata.
+// G1: WASD + F pugno, G calcio, H parata, R T Y U mosse speciali 1-4, E super.
+// G2: frecce + K pugno, L calcio, Ò parata, I O P È mosse speciali 1-4, J super (o tastierino: 1 2 3, 4-7, 0).
+// Controller: il primo collegato è il G1, il secondo il G2. Quadrato/X pugno, Croce/A calcio, R1/RB parata,
+// Triangolo/Y, Cerchio/B, L1/LB, L2/LT mosse speciali 1-4, R2/RT super.
 // Touch (telefono): i comandi sullo schermo (touch.js) sono del G1, e i tocchi sui menu arrivano come "tap".
 import { unlockAudio } from './audio.js';
 
-const ACTIONS = ['left', 'right', 'up', 'down', 'punch', 'kick', 'block', 'start', 'back'];
+const ACTIONS = ['left', 'right', 'up', 'down', 'punch', 'kick', 'block', 'sp1', 'sp2', 'sp3', 'sp4', 'super', 'start', 'back'];
 const KEYMAP = [
-  { KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', KeyF: 'punch', KeyG: 'kick', KeyH: 'block', Enter: 'start', Space: 'start', Escape: 'back', KeyP: 'back' },
+  { KeyA: 'left', KeyD: 'right', KeyW: 'up', KeyS: 'down', KeyF: 'punch', KeyG: 'kick', KeyH: 'block',
+    KeyR: 'sp1', KeyT: 'sp2', KeyY: 'sp3', KeyU: 'sp4', KeyE: 'super', Enter: 'start', Space: 'start', Escape: 'back' },
   { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', KeyK: 'punch', KeyL: 'kick', Semicolon: 'block', Quote: 'block',
-    Numpad1: 'punch', Numpad2: 'kick', Numpad3: 'block', NumpadEnter: 'start' },
+    KeyI: 'sp1', KeyO: 'sp2', KeyP: 'sp3', BracketLeft: 'sp4', KeyJ: 'super',
+    Numpad1: 'punch', Numpad2: 'kick', Numpad3: 'block', Numpad4: 'sp1', Numpad5: 'sp2', Numpad6: 'sp3', Numpad7: 'sp4', Numpad0: 'super',
+    NumpadEnter: 'start' },
 ];
 
 const mk = () => Object.fromEntries(ACTIONS.map(a => [a, false]));
@@ -51,9 +56,10 @@ function readPads() {
     const ax = g.axes[0] || 0, ay = g.axes[1] || 0;
     const s = padState[p];
     s.left = b(14) || ax < -0.5; s.right = b(15) || ax > 0.5;
-    s.up = b(12) || ay < -0.6 || b(3); s.down = b(13) || ay > 0.6;
-    s.punch = b(2); s.kick = b(0); s.block = b(5) || b(4) || b(7) || b(6);
-    s.start = b(9); s.back = b(8) || b(1);
+    s.up = b(12) || ay < -0.6; s.down = b(13) || ay > 0.6;
+    s.punch = b(2); s.kick = b(0); s.block = b(5);
+    s.sp1 = b(3); s.sp2 = b(1); s.sp3 = b(4); s.sp4 = b(6); s.super = b(7);
+    s.start = b(9); s.back = b(8);
     if (Object.values(s).some(Boolean)) unlockAudio();
   });
 }

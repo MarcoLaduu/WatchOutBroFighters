@@ -1,15 +1,27 @@
 // Chi muove un lottatore: un giocatore umano (tastiera/controller) o la CPU.
 import { isHeld, wasPressed, takeTouchSpecial } from '../input.js';
+import { slotCodes } from './specials.js';
 
 const ACTS = ['left', 'right', 'up', 'down', 'punch', 'kick', 'block'];
 
+// Mossa speciale chiesta con i tasti Speciale 1-4 o Super dai giocatori ps (tastiera o controller).
+export function keySpecial(ps, id) {
+  const codes = slotCodes(id);
+  for (const p of ps) {
+    if (wasPressed(p, 'super')) return 'super';
+    for (let i = 0; i < 4; i++) if (wasPressed(p, `sp${i + 1}`) && codes[i]) return codes[i];
+  }
+  return null;
+}
+
 export function humanCtrl(p) {
   return {
-    read() {
+    read(me) {
       const held = {}, pressed = {};
       for (const a of ACTS) { held[a] = isHeld(p, a); pressed[a] = wasPressed(p, a); }
-      // G1 al telefono: le mosse speciali possono arrivare dai tasti sullo schermo
-      return { held, pressed, special: p === 0 ? takeTouchSpecial() : null };
+      // G1 al telefono: le mosse speciali possono arrivare anche dai tasti sullo schermo
+      const special = (p === 0 && takeTouchSpecial()) || keySpecial([p], me.ch.id);
+      return { held, pressed, special };
     },
   };
 }
@@ -26,7 +38,7 @@ const CLOSE = new Set(['grab', 'melee', 'dash', 'chain', 'rising', 'hold']);
 
 // La CPU sceglie una mossa speciale adatta alla distanza (le mosse "su di sé" vanno bene sempre).
 function pickSpecial(me, dist) {
-  const codes = Object.keys(me.specials).filter(c => c !== 'super' && !(me.specials[c].cost > me.meter));
+  const codes = Object.keys(me.specials).filter(c => c !== 'super' && !(me.specials[c].cost > me.meter) && !(me.cd[c] > 0));
   const fit = codes.filter(c => {
     const k = me.specials[c].kind;
     if (dist > 70) return RANGED.has(k) || k === 'self' || k === 'barrier';

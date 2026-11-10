@@ -1,7 +1,7 @@
 // Un lottatore: stato, fisica, attacchi base, mosse speciali e super. Il disegno è in view.js (Phaser).
 import { GROUND, GRAVITY, WALL_L, WALL_R } from '../config.js';
 import { MOVES } from './moves.js';
-import { SPECIALS, METER_MAX } from './specials.js';
+import { SPECIALS, METER_MAX, cooldownOf } from './specials.js';
 import { sfx } from '../audio.js';
 import { SCRIPTS, finishSuper } from './supers.js';
 
@@ -31,6 +31,7 @@ export class Fighter {
     this.st = {};                 // effetti a tempo: slow, blind, invert, armor, drunk, reduce, sluggish, venerdoc, crown, live
     this.clock = 0; this.dirHist = []; this.posHist = []; this.lastP = -99; this.lastK = -99;
     this.barrier = 0; this.invuln = 0; this.countering = false;
+    this.cd = {};                 // cooldown delle mosse speciali (fotogrammi rimasti), si azzera a ogni round
     this.comboTaken = 0; this.bonusNext = false;
     this.sp = null; this.spData = {}; this.box = null; this.holder = null;
     this.cine = null; this.view = null; // super in corso (vedi supers.js) e posa imposta dalla scena
@@ -120,6 +121,7 @@ export class Fighter {
     const inp = this.readInput(opp);
     const fwd = this.face > 0 ? 'right' : 'left', back = this.face > 0 ? 'left' : 'right';
     this.t++; this.clock++;
+    for (const k in this.cd) if (this.cd[k] > 0) this.cd[k]--;
     if (this.flash > 0) this.flash--;
     if (this.invuln > 0) this.invuln--;
     if (this.barrier > 0) this.barrier--;
@@ -162,7 +164,7 @@ export class Fighter {
         break;
       case 'attack': {
         const m = this.move;
-        if (this.t <= 4 && !m.air && this.wantsSuper(inp.pressed)) { fight.startSuper(this); break; }
+        if (this.t <= 4 && !m.air && inp.special === 'super' && this.meter >= METER_MAX && this.specials.super) { fight.startSuper(this); break; }
         if (m.air) { if (this.grounded) { this.set('land'); this.move = null; } }
         else if (this.t >= m.startup + m.active + m.recovery) { this.move = null; this.set(this.crouching && inp.held.down ? 'crouch' : 'idle'); }
         break;
@@ -192,9 +194,9 @@ export class Fighter {
       default: { // libero a terra
         this.crouching = false;
         if (canAct) {
-          if (inp.special === 'super' || this.wantsSuper(inp.pressed)) { if (this.meter >= METER_MAX && this.specials.super) { fight.startSuper(this); break; } }
-          const code = inp.special && inp.special !== 'super' ? inp.special
-            : inp.pressed.punch ? this.motionCode('P') : inp.pressed.kick ? this.motionCode('K') : null;
+          // super e mosse speciali hanno i loro tasti (niente più combinazioni)
+          if (inp.special === 'super') { if (this.meter >= METER_MAX && this.specials.super) { fight.startSuper(this); break; } }
+          const code = inp.special && inp.special !== 'super' ? inp.special : null;
           if (code && this.startSpecial(code, fight)) break;
           if (inp.pressed.punch) { this.startAttack(inp.held.down ? 'cpunch' : 'punch'); break; }
           if (inp.pressed.kick) { this.startAttack(inp.held.down ? 'sweep' : 'kick'); break; }
@@ -231,8 +233,10 @@ export class Fighter {
   startSpecial(code, fight) {
     const d = this.specials[code];
     if (!d) return false;
+    if (this.cd[code] > 0) return false;          // ancora in ricarica
     if (d.cost && this.meter < d.cost) return false;
     if (d.cost) this.meter -= d.cost;
+    this.cd[code] = cooldownOf(d);
     this.sp = d; this.spCode = code; this.spData = { n: 0, hits: 0 };
     this.set('special'); this.hitDone = false; this.vx = 0; this.crouching = d.anim === 'cpunch';
     if (d.shout) fight.say(this, d.shout);
@@ -368,7 +372,8 @@ export class Fighter {
       case 'hold': {
         const D = this.spData;
         if (t >= S && !D.released) {
-          if (!inp.held.punch && t > S + 6 || t >= S + d.max) D.released = t;
+          // dura fino al massimo; Parata la interrompe prima (uguale per tutti, anche online)
+          if (inp.pressed.block && t > S + 6 || t >= S + d.max) D.released = t;
           D.len = Math.min(92, 18 + (t - S) * 1.3);
           if ((t - S) % d.every === 0) this.hitDone = false;
           if (!this.hitDone) this.box = { box: this.makeBox([10, 10 + D.len, -46, -24]), hit: d.hit, sp: d };

@@ -6,7 +6,8 @@ import { MOVESETS, BASE_MOVES } from './data/movesets.js';
 import { ART } from './sprites/index.js';
 import { wasPressed, anyPressed, confirm as pressConfirm, cancel, padType, takeTap, isTouch, isHeld, takeTouchSpecial } from './input.js';
 import { NetSession, packInput, unpackInput, makeRng, fightHash, shareLink, cleanCode } from './net.js';
-import { humanCtrl, cpuCtrl, LEVELS } from './game/controllers.js';
+import { humanCtrl, cpuCtrl, LEVELS, keySpecial } from './game/controllers.js';
+import { slotCodes, cooldownOf } from './game/specials.js';
 import { Fight } from './game/fight.js';
 import { arenaCanvas } from './game/arena.js';
 import { text, box, P1C, P2C, CPUC } from './ui.js';
@@ -190,7 +191,8 @@ export function createScenes() {
       held[a] = acceptInput && (isHeld(0, a) || isHeld(1, a));
       pressed[a] = acceptInput && (wasPressed(0, a) || wasPressed(1, a));
     }
-    n.pushLocal(packInput(held, pressed, acceptInput ? takeTouchSpecial() : null));
+    const myCh = f.f[n.mySide].ch.id;
+    n.pushLocal(packInput(held, pressed, acceptInput ? (takeTouchSpecial() || keySpecial([0, 1], myCh)) : null));
     // al massimo 2 fotogrammi per giro: se si è rimasti indietro si recupera senza salti bruschi
     let stepped = 0;
     for (let steps = 0; steps < 2; steps++) {
@@ -760,12 +762,12 @@ export function createScenes() {
     if (isTouch() && !padType(0)) return drawTouchControls(ctx);
     // solo tasti veri: le colonne della tastiera, più una per ogni controller collegato (con i suoi simboli)
     const PADS = {
-      ps: { name: 'PlayStation', P: '□', K: '✕', B: 'R1', start: 'Options' },
-      xbox: { name: 'Xbox', P: 'X', K: 'A', B: 'RB', start: 'Menu' },
+      ps: { name: 'PlayStation', P: '□', K: '✕', B: 'R1', sp: '△ ○ L1 L2', sup: 'R2', start: 'Options' },
+      xbox: { name: 'Xbox', P: 'X', K: 'A', B: 'RB', sp: 'Y B LB LT', sup: 'RT', start: 'Menu' },
     };
     const cols = [
-      { name: 'Tastiera G1', mv: 'W A S D', up: 'W', dn: 'S', P: 'F', K: 'G', B: 'H', start: 'Esc' },
-      { name: 'Tastiera G2', mv: '← → ↑ ↓', up: '↑', dn: '↓', P: 'K', K: 'L', B: 'Ò', start: 'Esc' },
+      { name: 'Tastiera G1', mv: 'W A S D', up: 'W', dn: 'S', P: 'F', K: 'G', B: 'H', sp: 'R T Y U', sup: 'E', start: 'Esc' },
+      { name: 'Tastiera G2', mv: '← → ↑ ↓', up: '↑', dn: '↓', P: 'K', K: 'L', B: 'Ò', sp: 'I O P È', sup: 'J', start: 'Esc' },
     ];
     [padType(0), padType(1)].forEach((t, i) => {
       if (t) cols.push({ ...PADS[t], name: `${PADS[t].name} G${i + 1}`, mv: '← → ↑ ↓', up: '↑', dn: '↓' });
@@ -780,13 +782,14 @@ export function createScenes() {
       ['Spazzata', c => `${c.dn} + ${c.K}`],
       ['Calcio volante', c => `${c.up}, ${c.P} o ${c.K}`],
       ['Parata bassa', c => `${c.dn} + ${c.B}`],
-      ['Super', c => `${c.P} + ${c.K}`],
+      ['Speciali 1 2 3 4', c => c.sp],
+      ['Super', c => c.sup],
       ['Pausa', c => c.start],
     ];
     const x0 = 12, labelW = 100, cw = (W - x0 - labelW - 8) / cols.length;
     cols.forEach((c, j) => text(ctx, c.name, x0 + labelW + j * cw, 44, { size: 5, color: '#f2c230', maxW: cw - 6 }));
     rows.forEach(([name, get], i) => {
-      const y = 58 + i * 13;
+      const y = 56 + i * 12;
       text(ctx, name, x0, y, { size: 7, color: '#f2c230', maxW: labelW - 6 });
       cols.forEach((c, j) => text(ctx, get(c), x0 + labelW + j * cw, y, { size: 7, maxW: cw - 6 }));
     });
@@ -802,7 +805,7 @@ export function createScenes() {
       ['Parata', 'Tasto grigio (↓ + Parata = parata bassa)'],
       ['Pugno basso', '↓ + Pugno'],
       ['Spazzata', '↓ + Calcio'],
-      ['Mosse speciali', 'Tasti azzurri a destra, oppure ↓ → + Pugno...'],
+      ['Mosse speciali', 'Tasti azzurri a destra (dopo l\'uso si ricaricano)'],
       ['Super', 'Tasto SUPER, compare con la barra piena'],
       ['Pausa', 'Tasto II in alto a sinistra'],
     ];
@@ -885,13 +888,15 @@ export function createScenes() {
   // Come si scrivono i comandi per ogni modo di giocare: tasti al posto di P, K e Parata,
   // e per il G1 anche le direzioni (WASD). Le direzioni valgono con il personaggio rivolto a destra.
   const SCHEMES = {
-    kb1: { name: 'Tastiera G1', P: 'F', K: 'G', Parata: 'H', '↓': 'S', '→': 'D', '←': 'A', '↑': 'W' },
-    kb2: { name: 'Tastiera G2', P: 'K', K: 'L', Parata: 'Ò' },
-    touch: { name: 'Comandi touch', P: 'Pugno', K: 'Calcio', Parata: 'Parata' },
-    xbox: { name: 'Controller Xbox', P: 'X', K: 'A', Parata: 'RB' },
-    ps: { name: 'Controller PlayStation', P: '□', K: '✕', Parata: 'R1' },
-    cpu: { name: 'CPU', P: 'P', K: 'K', Parata: 'Parata' },
+    kb1: { name: 'Tastiera G1', P: 'F', K: 'G', Parata: 'H', '↓': 'S', '→': 'D', '←': 'A', '↑': 'W', sp: ['R', 'T', 'Y', 'U'], sup: 'E' },
+    kb2: { name: 'Tastiera G2', P: 'K', K: 'L', Parata: 'Ò', sp: ['I', 'O', 'P', 'È'], sup: 'J' },
+    touch: { name: 'Comandi touch', P: 'Pugno', K: 'Calcio', Parata: 'Parata', sp: ['Tasto azzurro 1', 'Tasto azzurro 2', 'Tasto azzurro 3', 'Tasto azzurro 4'], sup: 'Tasto SUPER' },
+    xbox: { name: 'Controller Xbox', P: 'X', K: 'A', Parata: 'RB', sp: ['Y', 'B', 'LB', 'LT'], sup: 'RT' },
+    ps: { name: 'Controller PlayStation', P: '□', K: '✕', Parata: 'R1', sp: ['△', '○', 'L1', 'L2'], sup: 'R2' },
+    cpu: { name: 'CPU', P: 'P', K: 'K', Parata: 'Parata', sp: ['Speciale 1', 'Speciale 2', 'Speciale 3', 'Speciale 4'], sup: 'Super' },
   };
+  // da "↓ → + K" (move set) al codice della mossa (DFK), per sapere su quale tasto Speciale sta
+  const comboCode = c => c.replace(/[^↓→←PK]/g, '').replace(/↓/g, 'D').replace(/→/g, 'F').replace(/←/g, 'B');
   const fmt = (cmd, sc) => cmd.split(' ').map(t => sc[t] ?? t).join(' ');
   function schemeFor(side) {
     // CPU, amico online o tu: si mostrano sempre i tasti veri di chi sta guardando (G1)
@@ -926,8 +931,14 @@ export function createScenes() {
     if (ch.doubleJump) { row(y, 'Doppio salto', '↑ in aria'); y += 9; }
     y += 5;
     text(ctx, 'MOSSE SPECIALI', 12, y, { size: 7, color: col }); y += 11;
-    for (const [n, c] of ms.specials) { row(y, n, c, '#fff'); y += 9; }
-    row(y, `Super: ${ms.super}`, 'P + K', '#7fe8ff'); y += 11;
+    const codes = slotCodes(ch.id);
+    const list = ms.specials.map(([n, c]) => ({ n, c, code: comboCode(c) })).sort((a, b) => codes.indexOf(a.code) - codes.indexOf(b.code));
+    for (const { n, c, code } of list) {
+      const slot = codes.indexOf(code), d = f.specials[code];
+      const secs = d ? Math.round(cooldownOf(d) / 60) : 0;
+      row(y, n, `${slot >= 0 ? sc.sp[slot] : c}   ·  ricarica ${secs}s`, '#fff'); y += 9;
+    }
+    row(y, `Super: ${ms.super}`, `${sc.sup} (con la barra piena)`, '#7fe8ff'); y += 11;
     if (ms.passive && !ch.doubleJump) text(ctx, `Abilità passiva · ${ms.passive[0]}: ${ms.passive[1]}`, 12, y, { size: 5, color: '#a898b8' });
 
     text(ctx, isTouch() ? 'Tocca per tornare' : 'Pugno o Calcio per tornare', W / 2, 207, { size: 5, align: 'center', color: '#8a7a9a' });

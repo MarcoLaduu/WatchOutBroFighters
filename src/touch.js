@@ -3,7 +3,7 @@
 // scrivono nello stato del G1 in input.js. I tocchi fuori dai tasti servono per i menu.
 import { W, H } from './config.js';
 import { setTouch, releaseTouch, pushTap, isTouch, setTouchMode, padType, pushTouchSpecial } from './input.js';
-import { METER_MAX, SPECIALS } from './game/specials.js';
+import { METER_MAX, SPECIALS, slotCodes } from './game/specials.js';
 
 let root = null, dpadKnob = null, superBtn = null, labels = {}, spBox = null, spFor = null, fsBox = null;
 let askedFullscreen = false;
@@ -149,15 +149,16 @@ export function initTouch() {
   document.addEventListener('visibilitychange', () => { if (document.hidden) releaseTouch(); });
 }
 
-// Riempie i tasti delle mosse speciali con quelle del lottatore (nome + comando, per impararle).
+// Riempie i tasti delle mosse speciali con quelle del lottatore (nome, e i secondi di ricarica dopo l'uso).
+let spBtns = [];
 function fillSpecials(id) {
   spFor = id;
   spBox.innerHTML = '';
+  spBtns = [];
   const sp = SPECIALS[id] || {};
-  const ARROWS = { DF: '↓→', BF: '←→', DB: '↓←', DD: '↓↓' };
-  for (const code of Object.keys(sp)) {
-    if (code === 'super') continue;
-    const b = el('div', 'tc-spb', `<b>${sp[code].name}</b><i>${ARROWS[code.slice(0, 2)]} ${code[2] === 'P' ? 'Pugno' : 'Calcio'}</i>`);
+  for (const code of slotCodes(id)) {
+    const b = el('div', 'tc-spb', `<b>${sp[code].name}</b><i></i>`);
+    spBtns.push({ code, b, i: b.querySelector('i'), last: null });
     b.addEventListener('pointerdown', e => {
       e.preventDefault(); e.stopPropagation();
       pushTouchSpecial(code); buzz(); b.classList.add('on');
@@ -194,6 +195,14 @@ export function syncTouch(G) {
   // tasti delle mosse speciali del mio lottatore
   const mine = G.fight && G.fight.f[G.mode === 3 && G.net ? G.net.mySide : 0];
   if (fighting && mine && mine.ch.id !== spFor) fillSpecials(mine.ch.id);
+  // ricarica: tasto spento con i secondi che mancano
+  if (fighting && mine) for (const s of spBtns) {
+    const left = Math.ceil((mine.cd[s.code] || 0) / 60);
+    if (left === s.last) continue;
+    s.last = left;
+    s.b.classList.toggle('cd', left > 0);
+    s.i.textContent = left > 0 ? `${left}s` : '';
+  }
   labels.P.textContent = fighting ? 'Pugno' : 'OK';
   labels.K.textContent = fighting ? 'Calcio' : 'Indietro';
 }
